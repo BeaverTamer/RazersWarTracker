@@ -9,15 +9,33 @@
     body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
     .top-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-    .key-group { display: flex; gap: 6px; align-items: center; }
+    .key-group { display: flex; gap: 5px; align-items: center; }
     button { padding: 7px 12px; border: 1px solid #333; border-radius: 5px; background: #1e1e1e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
     button:hover { background: #2c2c2c; color: #fff; }
     button.active { background: #2e7d32; color: #fff; border-color: #4caf50; }
     button.load-btn { background: #1565c0; color: #fff; border-color: #1976d2; }
-    button.eye-btn { padding: 7px 9px; font-size: 0.82rem; }
+    button.toggle-btn { padding: 7px 9px; font-size: 0.78rem; color: #aaa; }
     input { padding: 7px 10px; border-radius: 5px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 155px; font-size: 0.85rem; }
-    .sub-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #999; margin-bottom: 10px; gap: 8px; }
+    .sub-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #999; margin-bottom: 8px; gap: 8px; }
     .loc-badge { color: #90caf9; font-weight: 600; white-space: nowrap; }
+
+    /* War Score Banner */
+    .war-banner { background: #1a1a1a; border: 1px solid #2e2e2e; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; display: none; }
+    .war-banner.visible { display: block; }
+    .war-scores-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; }
+    .war-team { display: flex; align-items: center; gap: 6px; }
+    .war-team.ally { color: #81c784; }
+    .war-team.enemy { color: #e57373; text-align: right; justify-content: flex-end; }
+    .war-score-num { font-family: monospace; font-size: 1rem; color: #fff; }
+    .war-center-info { text-align: center; font-size: 0.78rem; color: #bbb; font-weight: 600; }
+    .lead-pill { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 0.74rem; font-weight: 700; margin-bottom: 2px; }
+    .lead-ally { background: rgba(46, 125, 50, 0.35); color: #a5d6a7; border: 1px solid #4caf50; }
+    .lead-enemy { background: rgba(198, 40, 40, 0.35); color: #ef9a9a; border: 1px solid #e53935; }
+    .lead-tied { background: #2a2a2a; color: #ccc; border: 1px solid #444; }
+    .war-bar-wrap { width: 100%; height: 8px; background: #262626; border-radius: 4px; overflow: hidden; display: flex; position: relative; }
+    .war-bar-ally { background: #2e7d32; height: 100%; transition: width 0.4s ease; }
+    .war-bar-enemy { background: #c62828; height: 100%; transition: width 0.4s ease; }
+
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; touch-action: pan-y; }
     @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; }
@@ -56,7 +74,8 @@
       .player-cell { max-width: 108px; }
       .timer { font-size: 0.75rem; padding: 1px 2px; }
       a.atk-btn { padding: 2px 5px; font-size: 0.72rem; }
-      input { width: 135px; }
+      .war-scores-row { font-size: 0.78rem; }
+      .war-score-num { font-size: 0.88rem; }
     }
     @keyframes flashYellow { 0%, 100% { background-color: rgba(253, 216, 53, 0.28); color: #fff59d; } 50% { background-color: transparent; color: #fdd835; } }
     @keyframes flashRed { 0%, 100% { background-color: rgba(229, 57, 53, 0.48); color: #ffffff; } 50% { background-color: transparent; color: #ff5252; } }
@@ -70,16 +89,36 @@
 <body>
   <div class="top-bar">
     <div class="tabs" id="factionTabs"></div>
-    <form class="key-group" onsubmit="event.preventDefault(); manualLoad();">
-      <input type="password" id="apiKey" name="apiKey" autocomplete="current-password" placeholder="Public Torn API Key" />
-      <button type="button" class="eye-btn" id="toggleKeyBtn" onclick="toggleKeyVisibility()" title="Show or hide key">Show</button>
-      <button type="submit" class="load-btn">Load</button>
-    </form>
+    <div class="key-group">
+      <input type="password" id="apiKey" autocomplete="current-password" placeholder="Public Torn API Key" />
+      <button type="button" class="toggle-btn" id="toggleKeyBtn" onclick="toggleKeyVis()">Show</button>
+      <button type="button" class="load-btn" onclick="manualLoad()">Load</button>
+    </div>
   </div>
   <div class="sub-bar">
     <span id="statusBar">Enter a Public Torn API key and click Load.</span>
     <span class="loc-badge" id="myLocBadge">Your Location: --</span>
   </div>
+
+  <div class="war-banner" id="warBanner">
+    <div class="war-scores-row">
+      <div class="war-team ally">
+        <span id="warAllyName">Ally</span>: <span class="war-score-num" id="warAllyScore">0</span>
+      </div>
+      <div class="war-center-info">
+        <div class="lead-pill lead-tied" id="warLeadBadge">Tied (0)</div>
+        <div id="warTargetText">Target: 0 / 0</div>
+      </div>
+      <div class="war-team enemy">
+        <span class="war-score-num" id="warEnemyScore">0</span> :<span id="warEnemyName">Enemy</span>
+      </div>
+    </div>
+    <div class="war-bar-wrap">
+      <div class="war-bar-ally" id="warBarAlly" style="width: 50%;"></div>
+      <div class="war-bar-enemy" id="warBarEnemy" style="width: 50%;"></div>
+    </div>
+  </div>
+
   <div class="board" id="swipeBoard">
     <div class="panel">
       <div class="panel-header">
@@ -131,38 +170,43 @@
     let myCityCode = "TC";
     let cachedData = { ally: null, enemy: null };
 
+    function toggleKeyVis() {
+      const inp = document.getElementById("apiKey");
+      const btn = document.getElementById("toggleKeyBtn");
+      if (inp.type === "password") {
+        inp.type = "text";
+        btn.textContent = "Hide";
+      } else {
+        inp.type = "password";
+        btn.textContent = "Show";
+      }
+    }
+
     function saveApiKey(val) {
       if (!val) return;
-      localStorage.setItem("torn_pub_key", val);
+      try { localStorage.setItem("torn_pub_key", val); } catch (e) {}
       document.cookie = "torn_pub_key=" + encodeURIComponent(val) + "; max-age=31536000; path=/; SameSite=Lax";
     }
 
     function loadSavedApiKey() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlKey = urlParams.get("key");
-      if (urlKey && urlKey.trim().length >= 16) {
-        saveApiKey(urlKey.trim());
-        return urlKey.trim();
-      }
-      const lsKey = localStorage.getItem("torn_pub_key");
-      if (lsKey) return lsKey;
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlKey = urlParams.get("key");
+        if (urlKey && urlKey.trim().length >= 16) {
+          saveApiKey(urlKey.trim());
+          return urlKey.trim();
+        }
+      } catch (e) {}
+      try {
+        const lsKey = localStorage.getItem("torn_pub_key");
+        if (lsKey) return lsKey;
+      } catch (e) {}
       const match = document.cookie.match(/(?:^|;\s*)torn_pub_key=([^;]+)/);
       return match ? decodeURIComponent(match[1]) : "";
     }
 
     const keyInput = document.getElementById("apiKey");
     keyInput.value = loadSavedApiKey();
-
-    function toggleKeyVisibility() {
-      const btn = document.getElementById("toggleKeyBtn");
-      if (keyInput.type === "password") {
-        keyInput.type = "text";
-        btn.textContent = "Hide";
-      } else {
-        keyInput.type = "password";
-        btn.textContent = "Show";
-      }
-    }
 
     function manualLoad() {
       const val = keyInput.value.trim();
@@ -183,6 +227,7 @@
     const tabContainer = document.getElementById("factionTabs");
     OUR_FACTIONS.forEach(fac => {
       const btn = document.createElement("button");
+      btn.type = "button";
       btn.textContent = fac.name;
       btn.dataset.id = fac.id;
       btn.onclick = () => switchTab(fac.id);
@@ -306,27 +351,108 @@
       return m[1] + m[2][0].toLowerCase();
     }
 
-    function findOpponentId(factionData, ourId) {
+    function extractActiveWar(factionData, ourId) {
       if (factionData.ranked_wars) {
-        for (const war of Object.values(factionData.ranked_wars)) {
+        for (const [warId, war] of Object.entries(factionData.ranked_wars)) {
+          if (!war || !war.factions) continue;
           const ids = Object.keys(war.factions).map(Number);
-          const opp = ids.find(id => id !== Number(ourId));
-          if (opp) return opp;
+          const oppId = ids.find(id => id !== Number(ourId));
+          if (oppId) {
+            const allyFac = war.factions[ourId] || war.factions[String(ourId)] || {};
+            const enemyFac = war.factions[oppId] || war.factions[String(oppId)] || {};
+            const target = (war.war && war.war.target) ? Number(war.war.target) : 0;
+            return {
+              type: "Ranked War",
+              enemyId: oppId,
+              allyName: allyFac.name || "Us",
+              allyScore: Number(allyFac.score || 0),
+              enemyName: enemyFac.name || "Opponent",
+              enemyScore: Number(enemyFac.score || 0),
+              target: target
+            };
+          }
         }
       }
       if (factionData.territory_wars) {
         for (const war of Object.values(factionData.territory_wars)) {
-          const opp = war.assaulting_faction === Number(ourId) ? war.defending_faction : war.assaulting_faction;
-          if (opp) return opp;
+          const isAssault = Number(war.assaulting_faction) === Number(ourId);
+          const oppId = isAssault ? Number(war.defending_faction) : Number(war.assaulting_faction);
+          if (oppId) {
+            return {
+              type: "Territory War",
+              enemyId: oppId,
+              allyName: factionData.name || "Us",
+              allyScore: Number(war.score || 0),
+              enemyName: "Defender",
+              enemyScore: 0,
+              target: Number(war.required_score || 0)
+            };
+          }
         }
       }
       if (factionData.raid_wars) {
         for (const war of Object.values(factionData.raid_wars)) {
-          const opp = war.raiding_faction === Number(ourId) ? war.defending_faction : war.raiding_faction;
-          if (opp) return opp;
+          const isRaid = Number(war.raiding_faction) === Number(ourId);
+          const oppId = isRaid ? Number(war.defending_faction) : Number(war.raiding_faction);
+          if (oppId) {
+            return {
+              type: "Raid War",
+              enemyId: oppId,
+              allyName: factionData.name || "Us",
+              allyScore: Number(isRaid ? war.raider_score : war.defender_score) || 0,
+              enemyName: "Opponent",
+              enemyScore: Number(isRaid ? war.defender_score : war.raider_score) || 0,
+              target: 0
+            };
+          }
         }
       }
       return null;
+    }
+
+    function updateWarBanner(warInfo, allyData, enemyData) {
+      const banner = document.getElementById("warBanner");
+      if (!warInfo) {
+        banner.classList.remove("visible");
+        return;
+      }
+      banner.classList.add("visible");
+
+      const allyName = (allyData && allyData.name) ? allyData.name : warInfo.allyName;
+      const enemyName = (enemyData && enemyData.name) ? enemyData.name : warInfo.enemyName;
+      const aScore = warInfo.allyScore;
+      const eScore = warInfo.enemyScore;
+      const diff = Math.abs(aScore - eScore);
+      const lead = Math.abs(aScore - eScore);
+
+      document.getElementById("warAllyName").textContent = allyName;
+      document.getElementById("warAllyScore").textContent = aScore.toLocaleString();
+      document.getElementById("warEnemyName").textContent = enemyName;
+      document.getElementById("warEnemyScore").textContent = eScore.toLocaleString();
+
+      const leadBadge = document.getElementById("warLeadBadge");
+      if (aScore > eScore) {
+        leadBadge.textContent = allyName + " +" + diff.toLocaleString();
+        leadBadge.className = "lead-pill lead-ally";
+      } else if (eScore > aScore) {
+        leadBadge.textContent = enemyName + " +" + diff.toLocaleString();
+        leadBadge.className = "lead-pill lead-enemy";
+      } else {
+        leadBadge.textContent = "Tied (0)";
+        leadBadge.className = "lead-pill lead-tied";
+      }
+
+      const targetText = document.getElementById("warTargetText");
+      if (warInfo.target > 0) {
+        targetText.textContent = "Lead: " + lead.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target";
+      } else {
+        targetText.textContent = warInfo.type;
+      }
+
+      const total = aScore + eScore;
+      const allyPct = total > 0 ? Math.max(8, Math.min(92, (aScore / total) * 100)) : 50;
+      document.getElementById("warBarAlly").style.width = allyPct.toFixed(1) + "%";
+      document.getElementById("warBarEnemy").style.width = (100 - allyPct).toFixed(1) + "%";
     }
 
     async function loadFullFaction(id, key) {
@@ -375,14 +501,16 @@
         cachedData.ally = allyData;
         document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
 
-        const enemyId = findOpponentId(allyData, selectedFactionId);
-        if (enemyId) {
-          const enemyData = await loadFullFaction(enemyId, key);
+        const warInfo = extractActiveWar(allyData, selectedFactionId);
+        if (warInfo && warInfo.enemyId) {
+          const enemyData = await loadFullFaction(warInfo.enemyId, key);
           cachedData.enemy = enemyData;
           document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
+          updateWarBanner(warInfo, allyData, enemyData);
         } else {
           cachedData.enemy = null;
           document.getElementById("enemyTitle").textContent = "No Active War";
+          updateWarBanner(null, allyData, null);
         }
 
         renderTables();
