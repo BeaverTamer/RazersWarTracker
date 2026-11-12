@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Razers Alliance War Tracker</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+    .top-bar { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .key-group { display: flex; gap: 8px; }
+    button { padding: 10px 18px; border: 1px solid #333; border-radius: 6px; background: #1e1e1e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: 0.15s; }
+    button:hover { background: #2c2c2c; color: #fff; }
+    button.active { background: #2e7d32; color: #fff; border-color: #4caf50; }
+    button.load-btn { background: #1565c0; color: #fff; border-color: #1976d2; }
+    button.load-btn:hover { background: #1976d2; }
+    input { padding: 9px 12px; border-radius: 6px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 220px; }
+    .meta { font-size: 0.85rem; color: #999; margin-bottom: 16px; }
+    .board { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 800px) { .board { grid-template-columns: 1fr; } }
+    .panel { background: #1a1a1a; border-radius: 8px; padding: 16px; border: 1px solid #2c2c2c; }
+    h2 { margin-top: 0; font-size: 1.15rem; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #262626; }
+    th { color: #888; font-weight: 600; }
+    .Okay { color: #66bb6a; }
+    .Hospital { color: #ef5350; font-weight: bold; }
+    .Jail { color: #ffa726; font-weight: bold; }
+    .Traveling, .Abroad { color: #42a5f5; }
+    .timer { font-family: monospace; font-size: 0.95rem; }
+    a.player-link { color: #fff; text-decoration: none; }
+    a.player-link:hover { text-decoration: underline; color: #90caf9; }
+    a.atk-btn { background: #b71c1c; color: #fff; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; }
+    a.atk-btn:hover { background: #d32f2f; }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div class="tabs" id="factionTabs"></div>
+    <div class="key-group">
+      <input type="password" id="apiKey" placeholder="Paste Public Torn API Key" />
+      <button class="load-btn" onclick="fetchWarData()">Load</button>
+    </div>
+  </div>
+  <div class="meta" id="statusBar">Paste a Public API key in the top right and click Load.</div>
+
+  <div class="board">
+    <div class="panel">
+      <h2 id="allyTitle">Friendly Faction</h2>
+      <table>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th></tr></thead>
+        <tbody id="allyBody"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2 id="enemyTitle">Warring Opponent</h2>
+      <table>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
+        <tbody id="enemyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const OUR_FACTIONS = [
+      { id: 40449, name: "Razers" },
+      { id: 48277, name: "HellRazers" },
+      { id: 48628, name: "OccamsRazers" },
+      { id: 40385, name: "RazerResistance" }
+    ];
+
+    let selectedFactionId = 40449;
+    let cachedData = { ally: null, enemy: null };
+
+    const keyInput = document.getElementById("apiKey");
+    keyInput.value = localStorage.getItem("torn_pub_key") || "";
+    keyInput.addEventListener("input", () => {
+      localStorage.setItem("torn_pub_key", keyInput.value.trim());
+      if (keyInput.value.trim().length === 16) fetchWarData();
+    });
+
+    const tabContainer = document.getElementById("factionTabs");
+    OUR_FACTIONS.forEach(fac => {
+      const btn = document.createElement("button");
+      btn.textContent = fac.name;
+      btn.dataset.id = fac.id;
+      btn.onclick = () => {
+        selectedFactionId = fac.id;
+        updateActiveTab();
+        fetchWarData();
+      };
+      tabContainer.appendChild(btn);
+    });
+
+    function updateActiveTab() {
+      document.querySelectorAll("#factionTabs button").forEach(b => {
+        b.classList.toggle("active", Number(b.dataset.id) === selectedFactionId);
+      });
+    }
+
+    async function getFaction(id, key) {
+      const url = "https://torn.com" + id + "?selections=basic&key=" + encodeURIComponent(key);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.error);
+      return data;
+    }
+
+    function findOpponentId(factionData, ourId) {
+      if (factionData.ranked_wars) {
+        for (const war of Object.values(factionData.ranked_wars)) {
+          const ids = Object.keys(war.factions).map(Number);
+          const opp = ids.find(id => id !== Number(ourId));
+          if (opp) return opp;
+        }
+      }
+      if (factionData.territory_wars) {
+        for (const war of Object.values(factionData.territory_wars)) {
+          const opp = war.assaulting_faction === Number(ourId) ? war.defending_faction : war.assaulting_faction;
+          if (opp) return opp;
+        }
+      }
+      if (factionData.raid_wars) {
+        for (const war of Object.values(factionData.raid_wars)) {
+          const opp = war.raiding_faction === Number(ourId) ? war.defending_faction : war.raiding_faction;
+          if (opp) return opp;
+        }
+      }
+      return null;
+    }
+
+    async function fetchWarData() {
+      const key = keyInput.value.trim();
+      if (!key) {
+        document.getElementById("statusBar").textContent = "Please paste a Torn Public API key first.";
+        return;
+      }
+      document.getElementById("statusBar").textContent = "Fetching data for Faction " + selectedFactionId + "...";
+
+      try {
+        const allyData = await getFaction(selectedFactionId, key);
+        cachedData.ally = allyData;
+        document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
+
+        const enemyId = findOpponentId(allyData, selectedFactionId);
+        if (enemyId) {
+          const enemyData = await getFaction(enemyId, key);
+          cachedData.enemy = enemyData;
+          document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
+        } else {
+          cachedData.enemy = null;
+          document.getElementById("enemyTitle").textContent = "No Active War";
+        }
+
+        renderTables();
+        document.getElementById("statusBar").textContent = "Showing " + allyData.name + " • Auto-syncing every 20s • Last updated: " + new Date().toLocaleTimeString();
+      } catch (err) {
+        document.getElementById("statusBar").textContent = "Torn API Error: " + err.message;
+      }
+    }
+
+    function formatCountdown(untilUnix) {
+      if (!untilUnix) return "-";
+      const diff = untilUnix - Math.floor(Date.now() / 1000);
+      if (diff <= 0) return "00:00:00";
+      const h = String(Math.floor(diff / 3600)).padStart(2, "0");
+      const m = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
+      const s = String(diff % 60).padStart(2, "0");
+      return h + ":" + m + ":" + s;
+    }
+
+    function renderRoster(factionData, tbodyId, isEnemy) {
+      const tbody = document.getElementById(tbodyId);
+      const cols = isEnemy ? 5 : 4;
+      if (!factionData || !factionData.members) {
+        tbody.innerHTML = '<tr><td colspan="' + cols + '" style="color:#777;">No active opponent or data found.</td></tr>';
+        return;
+      }
+
+      const members = Object.entries(factionData.members).map(([id, m]) => ({ id, ...m }));
+      members.sort((a, b) => (a.status.until || 9999999999) - (b.status.until || 9999999999));
+
+      tbody.innerHTML = members.map(m => {
+        const atkCol = isEnemy ? '<td><a class="atk-btn" href="https://torn.com' + m.id + '" target="_blank">Attack</a></td>' : '';
+        return '<tr>' +
+          '<td><a class="player-link" href="https://torn.com' + m.id + '" target="_blank">' + m.name + '</a></td>' +
+          '<td>' + m.level + '</td>' +
+          '<td class="' + m.status.state + '">' + m.status.state + '</td>' +
+          '<td class="timer" data-until="' + (m.status.until || 0) + '">' + formatCountdown(m.status.until) + '</td>' +
+          atkCol +
+        '</tr>';
+      }).join("");
+    }
+
+    function renderTables() {
+      renderRoster(cachedData.ally, "allyBody", false);
+      renderRoster(cachedData.enemy, "enemyBody", true);
+    }
+
+    setInterval(() => {
+      document.querySelectorAll(".timer").forEach(el => {
+        const until = Number(el.dataset.until);
+        if (until > 0) el.textContent = formatCountdown(until);
+      });
+    }, 1000);
+
+    setInterval(fetchWarData, 20000);
+
+    updateActiveTab();
+    if (keyInput.value) fetchWarData();
+  </script>
+</body>
+</html>
