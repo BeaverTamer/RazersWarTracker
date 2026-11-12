@@ -19,48 +19,50 @@
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     @media (max-width: 900px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #1a1a1a; border-radius: 8px; padding: 16px; border: 1px solid #2c2c2c; }
-    h2 { margin-top: 0; font-size: 1.15rem; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
-    .chain-badge { font-size: 0.85rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; background: #252525; border: 1px solid #383838; color: #bbb; font-family: monospace; }
-    .chain-active { background: rgba(46, 125, 50, 0.25); border-color: #4caf50; color: #a5d6a7; }
-    .chain-low { animation: flashRed 0.8s infinite; border-color: #ef5350; }
-    .chain-cooldown { background: rgba(66, 165, 245, 0.2); border-color: #42a5f5; color: #90caf9; }
+    .panel-header { margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .panel-header h2 { margin: 0; font-size: 1.15rem; }
+    .chain-badge { font-family: monospace; font-size: 0.88rem; padding: 4px 10px; border-radius: 5px; background: #262626; color: #aaa; border: 1px solid #383838; font-weight: bold; }
+    .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #388e3c; }
+    .chain-cd { background: rgba(25, 118, 210, 0.25); color: #64b5f6; border-color: #1976d2; }
     table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
     th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #262626; }
     th { color: #888; font-weight: 600; }
-    .Okay { color: #66bb6a; }
+    .Okay { color: #66bb6a; font-weight: 600; }
     .Hospital { color: #ef5350; font-weight: bold; }
     .Jail { color: #ffa726; font-weight: bold; }
-    .Traveling, .Abroad { color: #42a5f5; font-weight: 600; }
+    .Traveling { color: #42a5f5; font-weight: 600; }
+    .Abroad { color: #26c6da; font-weight: 600; }
+    .Federal { color: #9e9e9e; }
     .timer { font-family: monospace; font-size: 0.95rem; padding: 2px 6px; border-radius: 4px; }
     a.player-link { color: #fff; text-decoration: none; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
-    a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; display: inline-block; transition: 0.15s; }
-    a.atk-btn:hover { background: #b71c1c; color: #fff; }
-    a.ally-atk-btn { background: #4a3511; color: #ffe082; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; display: inline-block; transition: 0.15s; }
-    a.ally-atk-btn:hover { background: #7c5817; color: #fff; }
+    a.atk-btn { background: #3a3a3a; color: #ccc; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; display: inline-block; transition: 0.15s; }
+    a.atk-btn:hover { background: #555; color: #fff; }
 
     @keyframes flashYellow {
-      0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
-      50% { background-color: transparent; color: #fdd835; }
+      0%, 100% { background-color: rgba(253, 216, 53, 0.28); color: #fff59d; border-color: #fdd835; }
+      50% { background-color: transparent; color: #fdd835; border-color: rgba(253, 216, 53, 0.35); }
     }
     @keyframes flashRed {
-      0%, 100% { background-color: rgba(229, 57, 53, 0.45); color: #ffffff; }
-      50% { background-color: transparent; color: #ff5252; }
+      0%, 100% { background-color: rgba(229, 57, 53, 0.45); color: #ffffff; border-color: #ff5252; }
+      50% { background-color: transparent; color: #ff5252; border-color: rgba(229, 57, 53, 0.35); }
     }
-    @keyframes flashAttackReady {
-      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 8px rgba(76, 175, 80, 0.8); }
+    @keyframes flashEnemyReady {
+      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 8px rgba(76, 175, 80, 0.85); }
       50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; }
     }
     @keyframes flashAllyReady {
-      0%, 100% { background-color: #ef6c00; color: #ffffff; box-shadow: 0 0 8px rgba(255, 152, 0, 0.8); }
-      50% { background-color: #8d4000; color: #ffe0b2; box-shadow: none; }
+      0%, 100% { background-color: #d84315; color: #ffffff; box-shadow: 0 0 8px rgba(255, 112, 67, 0.85); }
+      50% { background-color: #7f270c; color: #ffccbc; box-shadow: none; }
     }
 
     .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
     .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: bold; }
     .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
-    .atk-ready { animation: flashAttackReady 1.5s infinite; }
-    .ally-ready { animation: flashAllyReady 1.5s infinite; }
+    .chain-yellow-flash { animation: flashYellow 1.4s infinite; }
+    .chain-red-flash { animation: flashRed 0.65s infinite; }
+    .atk-ready-enemy { animation: flashEnemyReady 1.5s infinite; }
+    .atk-ready-ally { animation: flashAllyReady 1.5s infinite; }
   </style>
 </head>
 <body>
@@ -76,20 +78,20 @@
 
   <div class="board">
     <div class="panel">
-      <h2>
-        <span id="allyTitle">Razers [40449]</span>
-        <span id="allyChain" class="chain-badge">Chain: -</span>
-      </h2>
+      <div class="panel-header">
+        <h2 id="allyTitle">Razers</h2>
+        <span class="chain-badge" id="allyChain">Chain: -</span>
+      </div>
       <table>
         <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="allyBody"></tbody>
       </table>
     </div>
     <div class="panel">
-      <h2>
-        <span id="enemyTitle">Warring Opponent</span>
-        <span id="enemyChain" class="chain-badge">Chain: -</span>
-      </h2>
+      <div class="panel-header">
+        <h2 id="enemyTitle">Warring Opponent</h2>
+        <span class="chain-badge" id="enemyChain">Chain: -</span>
+      </div>
       <table>
         <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="enemyBody"></tbody>
@@ -105,9 +107,69 @@
       { id: 40385, name: "RazerResistance" }
     ];
 
+    const COUNTRY_CODES = [
+      { keys: ["torn", "torn city"], code: "TC" },
+      { keys: ["mexico", "mexican"], code: "MEX" },
+      { keys: ["cayman", "caymanian"], code: "CAY" },
+      { keys: ["canada", "canadian"], code: "CAN" },
+      { keys: ["hawaii", "hawaiian"], code: "HAW" },
+      { keys: ["united kingdom", "uk", "british", "london"], code: "UK" },
+      { keys: ["argentina", "argentinian"], code: "ARG" },
+      { keys: ["switzerland", "swiss"], code: "SWI" },
+      { keys: ["japan", "japanese"], code: "JAP" },
+      { keys: ["china", "chinese"], code: "CHI" },
+      { keys: ["uae", "united arab emirates", "emirati", "dubai"], code: "UAE" },
+      { keys: ["south africa", "south african"], code: "SA" }
+    ];
+
+    function getCountryCode(text) {
+      if (!text) return "TC";
+      const lower = text.toLowerCase();
+      for (let i = 0; i < COUNTRY_CODES.length; i++) {
+        const entry = COUNTRY_CODES[i];
+        for (let j = 0; j < entry.keys.length; j++) {
+          if (lower.indexOf(entry.keys[j]) !== -1) {
+            return entry.code;
+          }
+        }
+      }
+      return "TC";
+    }
+
+    function formatStatusLocation(status) {
+      const state = status.state || "Unknown";
+      const desc = status.description || "";
+      const lower = desc.toLowerCase();
+
+      if (state === "Hospital") {
+        const code = getCountryCode(desc);
+        return "Hosp (" + code + ")";
+      }
+      if (state === "Jail") {
+        return "Jail";
+      }
+      if (state === "Traveling") {
+        if (lower.indexOf("returning to torn") !== -1) {
+          const fromPart = desc.replace(/returning to torn from/i, "").trim();
+          const fromCode = getCountryCode(fromPart);
+          return fromCode + " > TC";
+        }
+        if (lower.indexOf("traveling to") !== -1) {
+          const toPart = desc.replace(/traveling to/i, "").trim();
+          const toCode = getCountryCode(toPart);
+          return "TC > " + toCode;
+        }
+        return desc || "Traveling";
+      }
+      if (state === "Abroad") {
+        const inPart = desc.replace(/^in\s+/i, "").trim();
+        return getCountryCode(inPart);
+      }
+      return state;
+    }
+
     let selectedFactionId = 40449;
     let cachedData = { ally: null, enemy: null };
-    let chainState = { ally: null, enemy: null };
 
     const keyInput = document.getElementById("apiKey");
     keyInput.value = localStorage.getItem("torn_pub_key") || "";
@@ -140,35 +202,32 @@
     }
 
     async function fetchJsonWithFallback(tornUrl) {
-      const attempts = [
+      const relays = [
         tornUrl,
         "https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl),
         "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl)
       ];
-
-      let lastErr = null;
-      for (const targetUrl of attempts) {
+      let lastError = "Failed to fetch";
+      for (let i = 0; i < relays.length; i++) {
         try {
-          const res = await fetch(targetUrl);
+          const res = await fetch(relays[i]);
           if (!res.ok) {
-            lastErr = new Error("HTTP " + res.status);
+            lastError = "HTTP " + res.status;
             continue;
           }
-          const text = await res.text();
-          const data = JSON.parse(text);
+          const data = await res.json();
           if (data.error) throw new Error(data.error.error);
           return data;
         } catch (err) {
-          lastErr = err;
-          if (err.message && (err.message.includes("Incorrect key") || err.message.includes("Access level") || err.message.includes("Too many requests"))) {
-            throw err;
-          }
+          if (err.message && err.message.indexOf("Incorrect key") !== -1) throw err;
+          if (err.message && err.message.indexOf("Access level") !== -1) throw err;
+          lastError = err.message || "Network error";
         }
       }
-      throw lastErr || new Error("Unable to reach Torn API");
+      throw new Error(lastError);
     }
 
-    async function getFactionWithChain(id, key) {
+    async function getFaction(id, key) {
       const tornUrl = "https://api.torn.com/faction/" + id + "?selections=basic,chain&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
       return await fetchJsonWithFallback(tornUrl);
     }
@@ -196,60 +255,41 @@
       return null;
     }
 
-    function formatShortTime(sec) {
-      if (sec <= 0) return "00:00";
-      const m = String(Math.floor(sec / 60)).padStart(2, "0");
-      const s = String(sec % 60).padStart(2, "0");
-      return m + ":" + s;
-    }
-
-    function parseChainData(factionData) {
-      if (!factionData || !factionData.chain) return null;
-      const c = factionData.chain;
-      const fetchedAt = Math.floor(Date.now() / 1000);
-      return {
-        current: c.current || 0,
-        max: c.max || 0,
-        timeout: c.timeout || 0,
-        cooldown: c.cooldown || 0,
-        fetchedAt: fetchedAt
-      };
-    }
-
-    function renderChainBadge(chainObj, elementId) {
-      const el = document.getElementById(elementId);
-      if (!chainObj) {
-        el.textContent = "Chain: -";
-        el.className = "chain-badge";
+    function updateChainDisplay(chainObj, badgeId, isAlly) {
+      const badge = document.getElementById(badgeId);
+      if (!chainObj || chainObj.current === 0) {
+        badge.textContent = "Chain: 0";
+        badge.className = "chain-badge";
         return;
       }
 
-      const elapsed = Math.floor(Date.now() / 1000) - chainObj.fetchedAt;
-
-      if (chainObj.cooldown > 0) {
-        const remCd = Math.max(0, chainObj.cooldown - elapsed);
-        const h = Math.floor(remCd / 3600);
-        const m = String(Math.floor((remCd % 3600) / 60)).padStart(2, "0");
-        const s = String(remCd % 60).padStart(2, "0");
-        const cdStr = h > 0 ? (h + ":" + m + ":" + s) : (m + ":" + s);
-        el.textContent = "Chain: " + chainObj.current + " (CD " + cdStr + ")";
-        el.className = "chain-badge chain-cooldown";
+      const now = Math.floor(Date.now() / 1000);
+      if (chainObj.cooldown > 0 && chainObj.end > now) {
+        const rem = chainObj.end - now;
+        badge.textContent = "Chain: " + chainObj.current + " (CD " + formatShortTime(rem) + ")";
+        badge.className = "chain-badge chain-cd";
         return;
       }
 
-      if (chainObj.current > 0 && chainObj.timeout > 0) {
-        const remTimeout = Math.max(0, chainObj.timeout - elapsed);
-        el.textContent = "Chain: " + chainObj.current + "/" + chainObj.max + " (" + formatShortTime(remTimeout) + ")";
-        if (remTimeout > 0 && remTimeout <= 60) {
-          el.className = "chain-badge chain-low";
+      if (chainObj.timeout > 0 && chainObj.end > now) {
+        const rem = chainObj.end - now;
+        badge.textContent = "Chain: " + chainObj.current + "/" + chainObj.max + " (" + formatShortTime(rem) + ")";
+        if (isAlly) {
+          if (rem < 60) {
+            badge.className = "chain-badge chain-red-flash";
+          } else if (rem < 150) {
+            badge.className = "chain-badge chain-yellow-flash";
+          } else {
+            badge.className = "chain-badge chain-active";
+          }
         } else {
-          el.className = "chain-badge chain-active";
+          badge.className = rem <= 60 ? "chain-badge chain-red-flash" : "chain-badge chain-active";
         }
         return;
       }
 
-      el.textContent = "Chain: 0";
-      el.className = "chain-badge";
+      badge.textContent = "Chain: " + chainObj.current;
+      badge.className = "chain-badge";
     }
 
     async function fetchWarData() {
@@ -261,24 +301,21 @@
       document.getElementById("statusBar").textContent = "Fetching data for Faction " + selectedFactionId + "...";
 
       try {
-        const allyData = await getFactionWithChain(selectedFactionId, key);
+        const allyData = await getFaction(selectedFactionId, key);
         cachedData.ally = allyData;
-        chainState.ally = parseChainData(allyData);
         document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
-        renderChainBadge(chainState.ally, "allyChain");
+        updateChainDisplay(allyData.chain, "allyChain", true);
 
         const enemyId = findOpponentId(allyData, selectedFactionId);
         if (enemyId) {
-          const enemyData = await getFactionWithChain(enemyId, key);
+          const enemyData = await getFaction(enemyId, key);
           cachedData.enemy = enemyData;
-          chainState.enemy = parseChainData(enemyData);
           document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
-          renderChainBadge(chainState.enemy, "enemyChain");
+          updateChainDisplay(enemyData.chain, "enemyChain", false);
         } else {
           cachedData.enemy = null;
-          chainState.enemy = null;
           document.getElementById("enemyTitle").textContent = "No Active War";
-          renderChainBadge(null, "enemyChain");
+          updateChainDisplay(null, "enemyChain", false);
         }
 
         renderTables();
@@ -288,57 +325,19 @@
       }
     }
 
+    function formatShortTime(diffSeconds) {
+      if (diffSeconds <= 0) return "00:00";
+      const m = String(Math.floor(diffSeconds / 60)).padStart(2, "0");
+      const s = String(diffSeconds % 60).padStart(2, "0");
+      return m + ":" + s;
+    }
+
     function formatCountdown(diffSeconds) {
       if (diffSeconds <= 0) return "00:00:00";
       const h = String(Math.floor(diffSeconds / 3600)).padStart(2, "0");
       const m = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, "0");
       const s = String(diffSeconds % 60).padStart(2, "0");
       return h + ":" + m + ":" + s;
-    }
-
-    function getCityCode(text) {
-      if (!text) return "TC";
-      const t = text.toLowerCase();
-      if (t.includes("mexico") || t.includes("mexican")) return "MEX";
-      if (t.includes("cayman")) return "CAY";
-      if (t.includes("canada") || t.includes("canadian")) return "CAN";
-      if (t.includes("hawaii")) return "HAW";
-      if (t.includes("united kingdom") || t.includes("british") || t.includes("uk")) return "UK";
-      if (t.includes("argentina") || t.includes("argentinian")) return "ARG";
-      if (t.includes("switzerland") || t.includes("swiss")) return "SWI";
-      if (t.includes("japan") || t.includes("japanese")) return "JAP";
-      if (t.includes("china") || t.includes("chinese")) return "CHI";
-      if (t.includes("uae") || t.includes("emirates") || t.includes("emirati") || t.includes("dubai")) return "UAE";
-      if (t.includes("south africa") || t.includes("south african")) return "SA";
-      if (t.includes("torn")) return "TC";
-      return "TC";
-    }
-
-    function formatDetailedStatus(statusObj) {
-      if (!statusObj) return "-";
-      const state = statusObj.state || "";
-      const desc = statusObj.description || "";
-
-      if (state === "Hospital") {
-        const code = getCityCode(desc);
-        return "Hosp (" + code + ")";
-      }
-
-      if (state === "Traveling") {
-        const destCode = getCityCode(desc);
-        if (desc.toLowerCase().includes("returning to torn")) {
-          const fromPart = desc.split(/from/i)[1] || "";
-          const originCode = getCityCode(fromPart);
-          return originCode + " > TC";
-        }
-        return "TC > " + destCode;
-      }
-
-      if (state === "Abroad") {
-        return getCityCode(desc);
-      }
-
-      return state;
     }
 
     function getTimerAlertClass(state, diffSeconds) {
@@ -372,12 +371,10 @@
         const timerText = until > 0 ? formatCountdown(diff) : "-";
         const alertClass = getTimerAlertClass(m.status.state, diff);
         const ready = isAttackReady(m.status.state, diff);
-        const statusDisplay = formatDetailedStatus(m.status);
+        const readyClass = ready ? (isEnemy ? " atk-ready-enemy" : " atk-ready-ally") : "";
+        const statusDisplay = formatStatusLocation(m.status);
 
-        const btnBaseClass = isEnemy ? "atk-btn" : "ally-atk-btn";
-        const readyClass = ready ? (isEnemy ? " atk-ready" : " ally-ready") : "";
-
-        const atkCol = '<td><a class="' + btnBaseClass + readyClass + '" data-enemy="' + (isEnemy ? "1" : "0") + '" data-state="' + m.status.state + '" data-until="' + until + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
+        const atkCol = '<td><a class="atk-btn' + readyClass + '" data-enemy="' + (isEnemy ? "1" : "0") + '" data-state="' + m.status.state + '" data-until="' + until + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
         return '<tr>' +
           '<td><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a></td>' +
@@ -397,8 +394,12 @@
     setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
 
-      renderChainBadge(chainState.ally, "allyChain");
-      renderChainBadge(chainState.enemy, "enemyChain");
+      if (cachedData.ally && cachedData.ally.chain) {
+        updateChainDisplay(cachedData.ally.chain, "allyChain", true);
+      }
+      if (cachedData.enemy && cachedData.enemy.chain) {
+        updateChainDisplay(cachedData.enemy.chain, "enemyChain", false);
+      }
 
       document.querySelectorAll(".timer").forEach(el => {
         const until = Number(el.dataset.until);
@@ -410,16 +411,14 @@
         }
       });
 
-      document.querySelectorAll(".atk-btn, .ally-atk-btn").forEach(btn => {
+      document.querySelectorAll(".atk-btn").forEach(btn => {
         const until = Number(btn.dataset.until);
         const state = btn.dataset.state;
         const isEnemy = btn.dataset.enemy === "1";
-        const readyClass = isEnemy ? "atk-ready" : "ally-ready";
         const diff = until > 0 ? until - now : 0;
+        btn.classList.remove("atk-ready-enemy", "atk-ready-ally");
         if (isAttackReady(state, diff)) {
-          btn.classList.add(readyClass);
-        } else {
-          btn.classList.remove(readyClass);
+          btn.classList.add(isEnemy ? "atk-ready-enemy" : "atk-ready-ally");
         }
       });
     }, 1000);
@@ -431,4 +430,3 @@
   </script>
 </body>
 </html>
-```
