@@ -6,251 +6,83 @@
   <title>Razers Alliance War Tracker</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #121212;
-      color: #e0e0e0;
-      margin: 0;
-      padding: 8px;
-      font-size: 0.82rem;
-    }
-    .top-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-    }
-    .tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-    .key-group {
-      display: flex;
-      gap: 5px;
-      align-items: center;
-    }
-    button {
-      padding: 6px 10px;
-      border: 1px solid #333;
-      border-radius: 5px;
-      background: #1e1e1e;
-      color: #ccc;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.8rem;
-      transition: 0.15s;
-    }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
+    .top-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+    .key-group { display: flex; gap: 6px; }
+    button { padding: 6px 12px; border: 1px solid #333; border-radius: 5px; background: #1e1e1e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: 0.15s; }
     button:hover { background: #2c2c2c; color: #fff; }
     button.active { background: #2e7d32; color: #fff; border-color: #4caf50; }
     button.load-btn { background: #1565c0; color: #fff; border-color: #1976d2; }
     button.load-btn:hover { background: #1976d2; }
-    input {
-      padding: 6px 8px;
-      border-radius: 5px;
-      border: 1px solid #333;
-      background: #1e1e1e;
-      color: #fff;
-      width: 155px;
-      font-size: 0.8rem;
-    }
-    .meta {
-      font-size: 0.74rem;
-      color: #888;
-      margin-bottom: 8px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      gap: 6px;
-    }
-    .loc-badge {
-      color: #90caf9;
-      font-weight: 600;
-    }
-    .board {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    @media (max-width: 820px) {
-      .board { grid-template-columns: 1fr; gap: 10px; }
-    }
-    .panel {
-      background: #181818;
-      border-radius: 6px;
-      padding: 8px;
-      border: 1px solid #2a2a2a;
-      overflow-x: auto;
-    }
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #2e2e2e;
-      padding-bottom: 6px;
-      margin-bottom: 4px;
-      gap: 6px;
-    }
-    h2 {
-      margin: 0;
-      font-size: 0.95rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .chain-badge {
-      font-family: monospace;
-      font-size: 0.76rem;
-      padding: 2px 7px;
-      border-radius: 4px;
-      background: #252525;
-      color: #aaa;
-      border: 1px solid #383838;
-      white-space: nowrap;
-      font-weight: 600;
-    }
-    .chain-active {
-      background: rgba(46, 125, 50, 0.25);
-      color: #81c784;
-      border-color: #388e3c;
-    }
-    .chain-cooldown {
-      background: #b3e5fc !important;
-      color: #01579b !important;
-      border-color: #4fc3f7 !important;
-      box-shadow: 0 0 6px rgba(179, 229, 252, 0.45);
-    }
+    input { padding: 6px 10px; border-radius: 5px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 175px; font-size: 0.85rem; }
+    .meta-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; font-size: 0.78rem; color: #999; margin-bottom: 10px; }
+    .loc-badge { background: #1e293b; color: #93c5fd; border: 1px solid #334155; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-family: monospace; }
+    .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 820px) { .board { grid-template-columns: 1fr; } }
+    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 4px; gap: 8px; flex-wrap: wrap; }
+    .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; }
+    .chain-badge { font-family: monospace; font-size: 0.78rem; padding: 2px 7px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; font-weight: 600; white-space: nowrap; }
+    .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #2e7d32; }
+    .chain-cooldown { background-color: #b3e5fc; color: #01579b; border-color: #81d4fa; box-shadow: 0 0 6px rgba(179, 229, 252, 0.45); }
+    .chain-warn-yellow { animation: flashChainYellow 1.5s infinite; }
+    .chain-warn-red { animation: flashChainRed 0.65s infinite; }
 
-    @keyframes flashChainYellow {
-      0%, 100% { background-color: rgba(253, 216, 53, 0.35); color: #fff59d; border-color: #fdd835; }
-      50% { background-color: rgba(253, 216, 53, 0.08); color: #fdd835; border-color: #827717; }
-    }
-    @keyframes flashChainRed {
-      0%, 100% { background-color: rgba(211, 47, 47, 0.75); color: #ffffff; border-color: #ff5252; }
-      50% { background-color: rgba(211, 47, 47, 0.2); color: #ff8a80; border-color: #b71c1c; }
-    }
-    .chain-warn-yellow {
-      animation: flashChainYellow 1.5s infinite;
-    }
-    .chain-warn-red {
-      animation: flashChainRed 0.65s infinite;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.78rem;
-      table-layout: fixed;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed; }
+    th, td { text-align: left; padding: 0 4px; height: 26px; line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    th { color: #888; font-weight: 600; border-bottom: 1px solid #2a2a2a; height: 24px; line-height: 24px; font-size: 0.75rem; }
+    
     col.col-player { width: 38%; }
     col.col-lvl { width: 9%; }
     col.col-status { width: 23%; }
     col.col-timer { width: 16%; }
-    col.col-act { width: 14%; }
+    col.col-action { width: 14%; }
 
-    th {
-      color: #777;
-      font-weight: 600;
-      text-align: left;
-      padding: 4px 4px;
-      border-bottom: 1px solid #2b2b2b;
-      white-space: nowrap;
-    }
-    tbody tr {
-      height: 26px;
-    }
-    tbody tr:nth-child(odd) {
-      background-color: #181818;
-    }
-    tbody tr:nth-child(even) {
-      background-color: #202020;
-    }
-    tbody tr:hover {
-      background-color: #292929;
-    }
-    td {
-      padding: 0 4px;
-      height: 26px;
-      line-height: 26px;
-      vertical-align: middle;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .player-cell {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      height: 26px;
-    }
-    .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: inline-block;
-    }
-    .dot-Online { background-color: #4caf50; box-shadow: 0 0 4px rgba(76, 175, 80, 0.7); }
+    tbody tr { height: 26px; }
+    tbody tr:nth-child(odd) { background-color: #181818; }
+    tbody tr:nth-child(even) { background-color: #202020; }
+    tbody tr:hover { background-color: #2a2a2a; }
+
+    .player-cell { display: flex; align-items: center; gap: 5px; height: 26px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+    .dot-Online { background-color: #4caf50; box-shadow: 0 0 4px rgba(76, 175, 80, 0.6); }
     .dot-Idle { background-color: #ff9800; }
     .dot-Offline { background-color: #555555; }
-
-    a.player-link {
-      color: #f0f0f0;
-      text-decoration: none;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    a.player-link { color: #f0f0f0; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
-
-    .la-tag {
-      color: #777;
-      font-size: 0.7rem;
-      flex-shrink: 0;
-    }
+    .last-act { color: #777; font-size: 0.72rem; flex-shrink: 0; }
 
     .Okay { color: #66bb6a; }
     .Hospital { color: #ef5350; font-weight: 600; }
     .Jail { color: #ffa726; font-weight: 600; }
     .Traveling, .Abroad { color: #42a5f5; }
-    .Fallen { color: #757575; font-style: italic; }
-
-    .timer {
-      font-family: monospace;
-      font-size: 0.8rem;
-      padding: 1px 4px;
-      border-radius: 3px;
-      display: inline-block;
-      line-height: 1.2;
-    }
-
-    a.atk-btn {
-      background: #7f1d1d;
-      color: #e0e0e0;
-      padding: 2px 6px;
-      border-radius: 3px;
-      text-decoration: none;
-      font-size: 0.72rem;
-      font-weight: 700;
-      display: inline-block;
-      line-height: 1.3;
-      transition: 0.15s;
-    }
+    .Fallen { color: #616161; font-style: italic; }
+    .timer { font-family: monospace; font-size: 0.8rem; padding: 1px 4px; border-radius: 3px; display: inline-block; line-height: 18px; }
+    
+    a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 0 6px; height: 20px; line-height: 20px; border-radius: 3px; text-decoration: none; font-size: 0.72rem; font-weight: bold; display: inline-block; text-align: center; transition: 0.15s; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
+    .no-atk { color: #555; font-size: 0.78rem; padding-left: 8px; }
 
     @keyframes flashYellow {
-      0%, 100% { background-color: rgba(253, 216, 53, 0.28); color: #fff59d; }
+      0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
       50% { background-color: transparent; color: #fdd835; }
     }
     @keyframes flashRed {
-      0%, 100% { background-color: rgba(229, 57, 53, 0.5); color: #ffffff; }
+      0%, 100% { background-color: rgba(229, 57, 53, 0.45); color: #ffffff; }
       50% { background-color: transparent; color: #ff5252; }
     }
     @keyframes flashAttackReady {
-      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.85); }
+      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.8); }
       50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; }
+    }
+    @keyframes flashChainYellow {
+      0%, 100% { background-color: rgba(253, 216, 53, 0.32); color: #fff59d; border-color: #fdd835; }
+      50% { background-color: #252525; color: #fdd835; border-color: #665c1e; }
+    }
+    @keyframes flashChainRed {
+      0%, 100% { background-color: rgba(211, 47, 47, 0.55); color: #ffffff; border-color: #ff5252; }
+      50% { background-color: #252525; color: #ff8a80; border-color: #7f1d1d; }
     }
 
     .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
@@ -259,15 +91,14 @@
     .atk-ready { animation: flashAttackReady 1.5s infinite; }
 
     @media (max-width: 480px) {
-      body { padding: 5px; }
-      .panel { padding: 6px; }
-      table { font-size: 0.73rem; }
-      col.col-player { width: 37%; }
-      col.col-lvl { width: 8%; }
-      col.col-status { width: 24%; }
-      col.col-timer { width: 17%; }
-      col.col-act { width: 14%; }
-      input { width: 130px; }
+      body { padding: 6px; }
+      .panel { padding: 8px; }
+      button { padding: 5px 9px; font-size: 0.8rem; }
+      input { width: 145px; font-size: 0.8rem; }
+      table { font-size: 0.74rem; }
+      th, td { padding: 0 3px; }
+      .timer { font-size: 0.73rem; padding: 1px 3px; }
+      a.atk-btn { padding: 0 5px; font-size: 0.68rem; }
     }
   </style>
 </head>
@@ -280,16 +111,16 @@
       <button class="load-btn" onclick="fetchWarData()">Load</button>
     </div>
   </div>
-  <div class="meta">
+  <div class="meta-bar">
     <span id="statusBar">Paste a Public API key in the top right and click Load.</span>
-    <span class="loc-badge" id="userLocBadge">Your Location: TC</span>
+    <span class="loc-badge" id="myLocBadge">Your Location: --</span>
   </div>
 
   <div class="board">
     <div class="panel">
       <div class="panel-header">
         <h2 id="allyTitle">Razers</h2>
-        <span class="chain-badge" id="allyChain">Chain: -</span>
+        <span class="chain-badge" id="allyChain">Chain: --</span>
       </div>
       <table>
         <colgroup>
@@ -297,19 +128,16 @@
           <col class="col-lvl" />
           <col class="col-status" />
           <col class="col-timer" />
-          <col class="col-act" />
+          <col class="col-action" />
         </colgroup>
-        <thead>
-          <tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr>
-        </thead>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="allyBody"></tbody>
       </table>
     </div>
-
     <div class="panel">
       <div class="panel-header">
         <h2 id="enemyTitle">Warring Opponent</h2>
-        <span class="chain-badge" id="enemyChain">Chain: -</span>
+        <span class="chain-badge" id="enemyChain">Chain: --</span>
       </div>
       <table>
         <colgroup>
@@ -317,11 +145,9 @@
           <col class="col-lvl" />
           <col class="col-status" />
           <col class="col-timer" />
-          <col class="col-act" />
+          <col class="col-action" />
         </colgroup>
-        <thead>
-          <tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr>
-        </thead>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="enemyBody"></tbody>
       </table>
     </div>
@@ -335,11 +161,26 @@
       { id: 40385, name: "RazerResistance" }
     ];
 
-    let selectedFactionId = 40449;
+    const CITY_CODES = [
+      { keys: ["torn city", "torn"], code: "TC" },
+      { keys: ["mexico", "mexican"], code: "MEX" },
+      { keys: ["cayman islands", "caymanian", "cayman"], code: "CAY" },
+      { keys: ["canada", "canadian"], code: "CAN" },
+      { keys: ["hawaii", "hawaiian"], code: "HAW" },
+      { keys: ["united kingdom", "british", "uk"], code: "UK" },
+      { keys: ["argentina", "argentinian"], code: "ARG" },
+      { keys: ["switzerland", "swiss"], code: "SWI" },
+      { keys: ["japan", "japanese"], code: "JAP" },
+      { keys: ["china", "chinese"], code: "CHI" },
+      { keys: ["united arab emirates", "emirati", "uae"], code: "UAE" },
+      { keys: ["south africa", "south african"], code: "SA" }
+    ];
+
+    const savedFacId = Number(localStorage.getItem("torn_selected_faction"));
+    let selectedFactionId = OUR_FACTIONS.some(f => f.id === savedFacId) ? savedFacId : 40449;
     let cachedData = { ally: null, enemy: null };
-    let chainState = { ally: null, enemy: null };
-    let userLocationCode = "TC";
-    let userIsTraveling = false;
+    let myLocationCode = "TC";
+    const RELEASE_GRACE_SEC = 8;
 
     const keyInput = document.getElementById("apiKey");
     keyInput.value = localStorage.getItem("torn_pub_key") || "";
@@ -355,6 +196,7 @@
       btn.dataset.id = fac.id;
       btn.onclick = () => {
         selectedFactionId = fac.id;
+        localStorage.setItem("torn_selected_faction", String(fac.id));
         updateActiveTab();
         fetchWarData();
       };
@@ -371,26 +213,143 @@
       }
     }
 
-    async function fetchWithFallback(tornUrl) {
-      const urls = [
-        tornUrl,
-        "https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl),
-        "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl)
-      ];
-      let lastErr = null;
-      for (const u of urls) {
-        try {
-          const res = await fetch(u);
-          if (!res.ok) {
-            lastErr = new Error("HTTP " + res.status);
-            continue;
+    function mapCityCode(text) {
+      if (!text) return null;
+      const lower = text.toLowerCase();
+      for (const entry of CITY_CODES) {
+        for (const k of entry.keys) {
+          if (k === "uk" || k === "uae" || k === "tc" || k === "sa") {
+            const regex = new RegExp("\b" + k + "\b", "i");
+            if (regex.test(lower)) return entry.code;
+          } else if (lower.includes(k)) {
+            return entry.code;
           }
-          const data = await res.json();
-          if (data.error) throw new Error(data.error.error);
-          return data;
+        }
+      }
+      return null;
+    }
+
+    function formatShortLastAction(lastAction) {
+      if (!lastAction || !lastAction.timestamp) return "";
+      const diff = Math.max(0, Math.floor(Date.now() / 1000) - Number(lastAction.timestamp));
+      if (diff < 60) return diff + "s";
+      const mins = Math.floor(diff / 60);
+      if (mins < 60) return mins + "m";
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + "h";
+      const days = Math.floor(hrs / 24);
+      return days + "d";
+    }
+
+    function parseMemberLocation(status) {
+      if (!status) return "TC";
+      const state = status.state || "Okay";
+      const desc = status.description || "";
+      const details = status.details || "";
+      const combined = (desc + " " + details).trim();
+
+      if (state === "Traveling") return "Traveling";
+      if (state === "Fallen") return "Fallen";
+
+      const explicitCode = mapCityCode(combined);
+      if (explicitCode) return explicitCode;
+
+      if (state === "Abroad") return "Abroad";
+      return "TC";
+    }
+
+    function formatMemberStatus(status) {
+      if (!status) return "Okay (TC)";
+      const state = status.state || "Okay";
+      const desc = status.description || "";
+      const details = status.details || "";
+      const combined = (desc + " " + details).trim();
+
+      if (state === "Fallen") return "Fallen";
+
+      if (state === "Hospital") {
+        const code = mapCityCode(combined) || "TC";
+        return "Hosp (" + code + ")";
+      }
+
+      if (state === "Jail") {
+        const code = mapCityCode(combined) || "TC";
+        return "Jail (" + code + ")";
+      }
+
+      if (state === "Traveling") {
+        const lower = combined.toLowerCase();
+
+        const fromToMatch = lower.match(/from\s+([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:$|\.|,|\s+in\s|\s+for\s)/);
+        if (fromToMatch) {
+          const fromCode = mapCityCode(fromToMatch[1]) || "TC";
+          const toCode = mapCityCode(fromToMatch[2]) || "TC";
+          return fromCode + " > " + toCode;
+        }
+
+        if (lower.includes("returning to torn")) {
+          const fromMatch = lower.match(/from\s+([a-z\s]+?)(?:$|\.|,|\s+in\s|\s+for\s)/);
+          const fromCode = fromMatch ? mapCityCode(fromMatch[1]) : null;
+          if (fromCode && fromCode !== "TC") return fromCode + " > TC";
+          const anyOther = mapCityCode(lower.replace("returning to torn", ""));
+          return (anyOther || "Abroad") + " > TC";
+        }
+
+        const toMatch = lower.match(/to\s+([a-z\s]+?)(?:$|\.|,|\s+in\s|\s+for\s)/);
+        if (toMatch) {
+          const toCode = mapCityCode(toMatch[1]);
+          if (toCode && toCode !== "TC") return "TC > " + toCode;
+        }
+
+        const destCode = mapCityCode(combined);
+        if (destCode && destCode !== "TC") return "TC > " + destCode;
+        return "Traveling";
+      }
+
+      if (state === "Abroad") {
+        const code = mapCityCode(combined);
+        return code ? "Okay (" + code + ")" : "Okay (Abroad)";
+      }
+
+      if (state === "Okay") {
+        const code = mapCityCode(combined) || "TC";
+        return "Okay (" + code + ")";
+      }
+
+      return state;
+    }
+
+    async function fetchTornEndpoint(endpointPath, key) {
+      const sep = endpointPath.includes("?") ? "&" : "?";
+      const tornUrl = "https://api.torn.com/" + endpointPath + sep + "key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
+
+      const attempts = [
+        async () => {
+          const res = await fetch(tornUrl);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return await res.json();
+        },
+        async () => {
+          const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl));
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return await res.json();
+        },
+        async () => {
+          const res = await fetch("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl));
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return await res.json();
+        }
+      ];
+
+      let lastErr = null;
+      for (const attempt of attempts) {
+        try {
+          const data = await attempt();
+          if (data && data.error) throw new Error(data.error.error);
+          if (data) return data;
         } catch (err) {
           lastErr = err;
-          if (err.message && !err.message.includes("Failed to fetch") && !err.message.includes("HTTP")) {
+          if (err.message && (err.message.includes("key") || err.message.includes("limit") || err.message.includes("Incorrect"))) {
             throw err;
           }
         }
@@ -398,43 +357,35 @@
       throw lastErr || new Error("Unable to reach Torn API");
     }
 
-    async function getUserLocation(key) {
+    async function getMyLocation(key) {
       try {
-        const userUrl = "https://api.torn.com/user/?selections=basic&comment=RazersWarTracker&key=" + encodeURIComponent(key);
-        const uData = await fetchWithFallback(userUrl);
-        if (uData && uData.status) {
-          const parsed = parseStatusInfo(uData.status);
-          if (parsed.isTraveling) {
-            userIsTraveling = true;
-            userLocationCode = "AIR";
-            document.getElementById("userLocBadge").textContent = "Your Location: Traveling (" + parsed.label + ")";
-          } else {
-            userIsTraveling = false;
-            userLocationCode = parsed.locCode || "TC";
-            document.getElementById("userLocBadge").textContent = "Your Location: " + userLocationCode;
-          }
+        const userData = await fetchTornEndpoint("user/?selections=basic", key);
+        if (userData && userData.status) {
+          const loc = parseMemberLocation(userData.status);
+          myLocationCode = loc;
+          document.getElementById("myLocBadge").textContent = "Your Location: " + loc;
         }
       } catch (e) {
-        // Keep previous or default TC if user lookup fails
       }
     }
 
-    async function getFactionCombined(id, key) {
-      const v1Url = "https://api.torn.com/faction/" + id + "?selections=basic,chain&comment=RazersWarTracker&key=" + encodeURIComponent(key);
-      const v1Data = await fetchWithFallback(v1Url);
+    async function getFactionFull(id, key) {
+      const v1Data = await fetchTornEndpoint("faction/" + id + "?selections=basic,chain", key);
 
       try {
-        const v2Url = "https://api.torn.com/v2/faction/" + id + "/members?comment=RazersWarTracker&key=" + encodeURIComponent(key);
-        const v2Data = await fetchWithFallback(v2Url);
+        const v2Data = await fetchTornEndpoint("v2/faction/" + id + "/members", key);
         if (v2Data && Array.isArray(v2Data.members) && v1Data.members) {
           v2Data.members.forEach(m2 => {
-            if (v1Data.members[m2.id] && m2.status) {
-              v1Data.members[m2.id].status = m2.status;
+            const m1 = v1Data.members[String(m2.id)];
+            if (m1 && m2.status) {
+              if (m2.status.description) m1.status.description = m2.status.description;
+              if (m2.status.details) m1.status.details = m2.status.details;
+              if (m2.status.state) m1.status.state = m2.status.state;
+              if (typeof m2.status.until === "number") m1.status.until = m2.status.until;
             }
           });
         }
       } catch (e) {
-        // Keep v1 data if v2 fails
       }
 
       return v1Data;
@@ -463,162 +414,76 @@
       return null;
     }
 
-    function mapCountryCode(rawText) {
-      if (!rawText) return "TC";
-      const t = rawText.toLowerCase();
-      if (t.includes("mexico") || t.includes("mexican")) return "MEX";
-      if (t.includes("cayman")) return "CAY";
-      if (t.includes("canada") || t.includes("canadian")) return "CAN";
-      if (t.includes("hawaii")) return "HAW";
-      if (t.includes("united kingdom") || t.includes("british") || t.includes("london") || /uk/.test(t)) return "UK";
-      if (t.includes("argentina") || t.includes("argentinian")) return "ARG";
-      if (t.includes("switzerland") || t.includes("swiss")) return "SWI";
-      if (t.includes("japan") || t.includes("japanese")) return "JAP";
-      if (t.includes("china") || t.includes("chinese")) return "CHI";
-      if (t.includes("uae") || t.includes("emirates") || t.includes("emirati") || t.includes("dubai")) return "UAE";
-      if (t.includes("south africa") || t.includes("african")) return "SA";
-      if (t.includes("torn")) return "TC";
-      return null;
-    }
-
-    function parseStatusInfo(statusObj) {
-      const state = statusObj.state || "Okay";
-      const desc = statusObj.description || "";
-      const details = statusObj.details || "";
-      const combined = (desc + " " + details).trim();
-      const locCode = mapCountryCode(combined) || "TC";
-
-      if (state === "Fallen") {
-        return { label: "Fallen", cssClass: "Fallen", tier: 5, sortKey: "", locCode: "", isTraveling: false };
-      }
-
-      if (state === "Hospital" || state === "Jail") {
-        const prefix = state === "Hospital" ? "Hosp" : "Jail";
-        return {
-          label: prefix + " (" + locCode + ")",
-          cssClass: state,
-          tier: 1,
-          sortKey: locCode,
-          locCode: locCode,
-          isTraveling: false
-        };
-      }
-
-      if (state === "Traveling") {
-        const dLower = combined.toLowerCase();
-        let route = "";
-        let startLoc = "TC";
-
-        const returnFromMatch = dLower.match(/returning to torn from ([a-z\s]+)/i);
-        const fromToMatch = dLower.match(/from ([a-z\s]+) to ([a-z\s]+)/i);
-        const toMatch = dLower.match(/(?:traveling|flying) to ([a-z\s]+)/i);
-
-        if (returnFromMatch) {
-          const fromCode = mapCountryCode(returnFromMatch[1]) || "ABROAD";
-          route = fromCode + " > TC";
-          startLoc = fromCode;
-        } else if (fromToMatch) {
-          const fromCode = mapCountryCode(fromToMatch[1]) || "TC";
-          const toCode = mapCountryCode(fromToMatch[2]) || "ABROAD";
-          route = fromCode + " > " + toCode;
-          startLoc = fromCode;
-        } else if (toMatch) {
-          const toCode = mapCountryCode(toMatch[1]) || "ABROAD";
-          route = "TC > " + toCode;
-          startLoc = "TC";
-        } else {
-          const detected = mapCountryCode(combined);
-          if (detected && detected !== "TC") {
-            route = dLower.includes("returning") ? (detected + " > TC") : ("TC > " + detected);
-            startLoc = dLower.includes("returning") ? detected : "TC";
-          } else {
-            route = "Traveling";
-            startLoc = "ZZZ";
-          }
-        }
-
-        return {
-          label: route,
-          cssClass: "Traveling",
-          tier: 2,
-          sortKey: startLoc,
-          locCode: "AIR",
-          isTraveling: true
-        };
-      }
-
-      const abroadCode = mapCountryCode(combined);
-      if (state === "Abroad" || (abroadCode && abroadCode !== "TC")) {
-        const finalCode = abroadCode || "ABROAD";
-        return {
-          label: "Okay (" + finalCode + ")",
-          cssClass: "Abroad",
-          tier: 3,
-          sortKey: finalCode,
-          locCode: finalCode,
-          isTraveling: false
-        };
-      }
-
-      return {
-        label: "Okay (TC)",
-        cssClass: "Okay",
-        tier: 4,
-        sortKey: "TC",
-        locCode: "TC",
-        isTraveling: false
-      };
-    }
-
-    function formatShortLastAction(laObj) {
-      if (!laObj || !laObj.timestamp) return "";
-      const diff = Math.max(0, Math.floor(Date.now() / 1000) - Number(laObj.timestamp));
-      if (diff < 60) return diff + "s";
-      if (diff < 3600) return Math.floor(diff / 60) + "m";
-      if (diff < 86400) return Math.floor(diff / 3600) + "h";
-      return Math.floor(diff / 86400) + "d";
-    }
-
-    function formatChainTime(sec) {
+    function formatShortTime(sec) {
       if (sec <= 0) return "00:00";
-      const m = String(Math.floor(sec / 60)).padStart(2, "0");
+      const h = Math.floor(sec / 3600);
+      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
       const s = String(sec % 60).padStart(2, "0");
-      return m + ":" + s;
+      return h > 0 ? (h + ":" + m + ":" + s) : (m + ":" + s);
     }
 
-    function updateChainDisplay(chainObj, badgeId, isAlly) {
-      const badge = document.getElementById(badgeId);
-      if (!chainObj || !chainObj.current || chainObj.current === 0) {
-        badge.textContent = "Chain: None";
-        badge.className = "chain-badge";
+    function updateChainBadge(elId, chainObj, isAlly) {
+      const el = document.getElementById(elId);
+      if (!chainObj || (!chainObj.current && !chainObj.cooldown)) {
+        el.textContent = "Chain: None";
+        el.className = "chain-badge";
+        el.dataset.end = "0";
+        el.dataset.mode = "none";
+        el.dataset.current = "0";
+        el.dataset.max = "0";
+        el.dataset.ally = isAlly ? "1" : "0";
         return;
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const current = chainObj.current;
-      const max = chainObj.max || "";
-      const countStr = max ? (current + "/" + max) : String(current);
+      el.dataset.ally = isAlly ? "1" : "0";
 
       if (chainObj.cooldown && chainObj.cooldown > 0) {
-        const cdEnd = chainObj.end ? (chainObj.end + chainObj.cooldown) : (chainObj._fetchedAt + chainObj.cooldown);
-        const cdLeft = Math.max(0, cdEnd - now);
-        badge.textContent = "Chain: " + current + " (CD " + formatChainTime(cdLeft) + ")";
-        badge.className = "chain-badge chain-cooldown";
+        const endUnix = chainObj.end ? Number(chainObj.end) : (now + Number(chainObj.cooldown));
+        const rem = Math.max(0, endUnix - now);
+        el.dataset.mode = "cooldown";
+        el.dataset.end = String(endUnix);
+        el.dataset.current = String(chainObj.current || 0);
+        el.dataset.max = String(chainObj.max || 0);
+        el.textContent = "Chain: " + (chainObj.current || 0) + " (CD " + formatShortTime(rem) + ")";
+        el.className = "chain-badge chain-cooldown";
         return;
       }
 
-      const timeoutEnd = chainObj._timeoutEnd || 0;
-      const timeLeft = Math.max(0, timeoutEnd - now);
-      badge.textContent = "Chain: " + countStr + " (" + formatChainTime(timeLeft) + ")";
+      const timeoutRem = Number(chainObj.timeout || 0);
+      const endUnix = now + timeoutRem;
+      el.dataset.mode = "active";
+      el.dataset.end = String(endUnix);
+      el.dataset.current = String(chainObj.current || 0);
+      el.dataset.max = String(chainObj.max || 0);
+      renderChainTick(el, now);
+    }
 
-      if (isAlly && timeLeft > 0 && timeLeft < 60) {
-        badge.className = "chain-badge chain-warn-red";
-      } else if (isAlly && timeLeft > 0 && timeLeft < 150) {
-        badge.className = "chain-badge chain-warn-yellow";
-      } else if (!isAlly && timeLeft > 0 && timeLeft <= 60) {
-        badge.className = "chain-badge chain-warn-red";
+    function renderChainTick(el, now) {
+      const mode = el.dataset.mode;
+      if (!mode || mode === "none") return;
+      const endUnix = Number(el.dataset.end || 0);
+      const rem = Math.max(0, endUnix - now);
+      const cur = el.dataset.current || "0";
+      const max = el.dataset.max || "0";
+      const isAlly = el.dataset.ally === "1";
+
+      if (mode === "cooldown") {
+        el.textContent = "Chain: " + cur + " (CD " + formatShortTime(rem) + ")";
+        el.className = "chain-badge chain-cooldown";
       } else {
-        badge.className = "chain-badge chain-active";
+        el.textContent = "Chain: " + cur + "/" + max + " (" + formatShortTime(rem) + ")";
+        let warnClass = "chain-badge chain-active";
+        if (isAlly && rem > 0) {
+          if (rem < 60) {
+            warnClass += " chain-warn-red";
+          } else if (rem < 150) {
+            warnClass += " chain-warn-yellow";
+          }
+        } else if (!isAlly && rem > 0 && rem <= 60) {
+          warnClass += " chain-warn-red";
+        }
+        el.className = warnClass;
       }
     }
 
@@ -628,44 +493,26 @@
         document.getElementById("statusBar").textContent = "Please paste a Torn Public API key first.";
         return;
       }
-      document.getElementById("statusBar").textContent = "Fetching data for Faction " + selectedFactionId + "...";
+      document.getElementById("statusBar").textContent = "Syncing live war data...";
 
       try {
-        await getUserLocation(key);
+        await getMyLocation(key);
 
-        const now = Math.floor(Date.now() / 1000);
-        const allyData = await getFactionCombined(selectedFactionId, key);
+        const allyData = await getFactionFull(selectedFactionId, key);
         cachedData.ally = allyData;
         document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
-
-        if (allyData.chain) {
-          allyData.chain._fetchedAt = now;
-          allyData.chain._timeoutEnd = now + (allyData.chain.timeout || 0);
-          chainState.ally = allyData.chain;
-        } else {
-          chainState.ally = null;
-        }
-        updateChainDisplay(chainState.ally, "allyChain", true);
+        updateChainBadge("allyChain", allyData.chain, true);
 
         const enemyId = findOpponentId(allyData, selectedFactionId);
         if (enemyId) {
-          const enemyData = await getFactionCombined(enemyId, key);
+          const enemyData = await getFactionFull(enemyId, key);
           cachedData.enemy = enemyData;
           document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
-
-          if (enemyData.chain) {
-            enemyData.chain._fetchedAt = now;
-            enemyData.chain._timeoutEnd = now + (enemyData.chain.timeout || 0);
-            chainState.enemy = enemyData.chain;
-          } else {
-            chainState.enemy = null;
-          }
-          updateChainDisplay(chainState.enemy, "enemyChain", false);
+          updateChainBadge("enemyChain", enemyData.chain, false);
         } else {
           cachedData.enemy = null;
-          chainState.enemy = null;
           document.getElementById("enemyTitle").textContent = "No Active War";
-          updateChainDisplay(null, "enemyChain", false);
+          updateChainBadge("enemyChain", null, false);
         }
 
         renderTables();
@@ -684,25 +531,64 @@
     }
 
     function getTimerAlertClass(state, diffSeconds) {
-      if (state !== "Hospital" && state !== "Jail") return "";
-      if (diffSeconds <= 0) return "timer-red-fast";
+      if ((state !== "Hospital" && state !== "Jail") || diffSeconds <= 0) return "";
       if (diffSeconds <= 120) return "timer-red-fast";
       if (diffSeconds <= 300) return "timer-yellow-slow";
       if (diffSeconds <= 600) return "timer-yellow-solid";
       return "";
     }
 
-    function isSameLocation(targetLocCode, targetIsTraveling) {
-      if (userIsTraveling || targetIsTraveling) return false;
-      return targetLocCode === userLocationCode;
+    function isSameLocation(targetLoc) {
+      if (!myLocationCode || myLocationCode === "Traveling" || myLocationCode === "Fallen") return false;
+      if (!targetLoc || targetLoc === "Traveling" || targetLoc === "Fallen") return false;
+      return myLocationCode === targetLoc;
     }
 
-    function isAttackReady(state, diffSeconds, targetLocCode, targetIsTraveling) {
+    function isAttackReady(state, diffSeconds, targetLoc) {
       if (state === "Fallen") return false;
-      if (!isSameLocation(targetLocCode, targetIsTraveling)) return false;
+      if (!isSameLocation(targetLoc)) return false;
       if (state === "Okay" || state === "Abroad") return true;
       if ((state === "Hospital" || state === "Jail") && diffSeconds <= 20) return true;
       return false;
+    }
+
+    function getSortGroup(m, formattedStatus, now) {
+      const state = m.status.state || "Okay";
+      const until = Number(m.status.until || 0);
+      const isTimed = (state === "Hospital" || state === "Jail");
+      const hasActiveGrace = isTimed && until > 0 && (now - until) <= RELEASE_GRACE_SEC;
+
+      if (state === "Fallen") return 5;
+      if (isTimed && (until === 0 || hasActiveGrace)) return 1;
+      if (state === "Traveling") return 2;
+      if (state === "Abroad" || (state === "Okay" && formattedStatus !== "Okay (TC)")) return 3;
+      return 4;
+    }
+
+    function sortMembers(members, now) {
+      return members.sort((a, b) => {
+        const statusA = formatMemberStatus(a.status);
+        const statusB = formatMemberStatus(b.status);
+        const groupA = getSortGroup(a, statusA, now);
+        const groupB = getSortGroup(b, statusB, now);
+
+        if (groupA !== groupB) return groupA - groupB;
+
+        if (groupA === 1) {
+          const untilA = a.status.until || 9999999999;
+          const untilB = b.status.until || 9999999999;
+          if (untilA !== untilB) return untilA - untilB;
+          return a.name.localeCompare(b.name);
+        }
+
+        if (groupA === 2 || groupA === 3) {
+          const cmp = statusA.localeCompare(statusB);
+          if (cmp !== 0) return cmp;
+          return a.name.localeCompare(b.name);
+        }
+
+        return a.name.localeCompare(b.name);
+      });
     }
 
     function renderRoster(factionData, tbodyId) {
@@ -713,72 +599,39 @@
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const members = Object.entries(factionData.members).map(([id, m]) => {
-        const parsed = parseStatusInfo(m.status);
-        const until = m.status.until || 0;
-        const diff = until > 0 ? until - now : 0;
-
-        let effectiveState = m.status.state;
-        let effectiveParsed = parsed;
-        let effectiveUntil = until;
-
-        if ((effectiveState === "Hospital" || effectiveState === "Jail") && until > 0 && diff <= -8) {
-          effectiveState = parsed.locCode === "TC" ? "Okay" : "Abroad";
-          effectiveUntil = 0;
-          effectiveParsed = {
-            label: "Okay (" + parsed.locCode + ")",
-            cssClass: parsed.locCode === "TC" ? "Okay" : "Abroad",
-            tier: parsed.locCode === "TC" ? 4 : 3,
-            sortKey: parsed.locCode,
-            locCode: parsed.locCode,
-            isTraveling: false
-          };
-        }
-
-        return {
-          id,
-          ...m,
-          effectiveState,
-          effectiveUntil,
-          parsed: effectiveParsed
-        };
-      });
-
-      members.sort((a, b) => {
-        if (a.parsed.tier !== b.parsed.tier) {
-          return a.parsed.tier - b.parsed.tier;
-        }
-        if (a.parsed.tier === 1) {
-          return (a.effectiveUntil || 9999999999) - (b.effectiveUntil || 9999999999);
-        }
-        if (a.parsed.tier === 2 || a.parsed.tier === 3) {
-          const cmp = a.parsed.sortKey.localeCompare(b.parsed.sortKey);
-          if (cmp !== 0) return cmp;
-        }
-        return a.name.localeCompare(b.name);
-      });
+      const rawMembers = Object.entries(factionData.members).map(([id, m]) => ({ id, ...m }));
+      const members = sortMembers(rawMembers, now);
 
       tbody.innerHTML = members.map(m => {
-        const until = m.effectiveUntil;
-        const diff = until > 0 ? until - now : 0;
-        const timerText = until > 0 ? formatCountdown(diff) : "-";
-        const alertClass = getTimerAlertClass(m.effectiveState, diff);
-        const isFallen = m.effectiveState === "Fallen";
-        const readyClass = isAttackReady(m.effectiveState, diff, m.parsed.locCode, m.parsed.isTraveling) ? " atk-ready" : "";
+        const state = m.status.state || "Okay";
+        const isFallen = state === "Fallen";
+        const until = Number(m.status.until || 0);
+        const isTimed = (state === "Hospital" || state === "Jail");
+        const isReleasedPastGrace = isTimed && until > 0 && (now - until) > RELEASE_GRACE_SEC;
 
-        const laState = (m.last_action && m.last_action.status) ? m.last_action.status : "Offline";
-        const laShort = formatShortLastAction(m.last_action);
+        const targetLoc = parseMemberLocation(m.status);
+        const effectiveState = isReleasedPastGrace ? (targetLoc === "TC" ? "Okay" : "Abroad") : state;
+        const displayStatus = isReleasedPastGrace ? ("Okay (" + targetLoc + ")") : formatMemberStatus(m.status);
 
-        const atkCell = isFallen
-          ? '<td style="color:#666;">-</td>'
-          : '<td><a class="atk-btn' + readyClass + '" data-state="' + m.effectiveState + '" data-until="' + until + '" data-loc="' + m.parsed.locCode + '" data-traveling="' + (m.parsed.isTraveling ? "1" : "0") + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
+        const diff = (isTimed && until > 0 && !isReleasedPastGrace) ? Math.max(0, until - now) : 0;
+        const timerText = (isTimed && until > 0 && !isReleasedPastGrace) ? formatCountdown(diff) : "-";
+        const alertClass = getTimerAlertClass(effectiveState, diff);
+        const readyClass = isAttackReady(effectiveState, diff, targetLoc) ? " atk-ready" : "";
+
+        const dotState = m.last_action && m.last_action.status ? m.last_action.status : "Offline";
+        const shortAct = formatShortLastAction(m.last_action);
+        const actHtml = shortAct ? '<span class="last-act" data-ts="' + m.last_action.timestamp + '">' + shortAct + '</span>' : '';
+
+        const actionCell = isFallen
+          ? '<td><span class="no-atk">-</span></td>'
+          : '<td><a class="atk-btn' + readyClass + '" data-state="' + effectiveState + '" data-until="' + (isReleasedPastGrace ? 0 : until) + '" data-loc="' + targetLoc + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
         return '<tr>' +
-          '<td><div class="player-cell"><span class="dot dot-' + laState + '" title="' + laState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="la-tag">' + laShort + '</span></div></td>' +
+          '<td><div class="player-cell"><span class="status-dot dot-' + dotState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a>' + actHtml + '</div></td>' +
           '<td>' + m.level + '</td>' +
-          '<td class="' + m.parsed.cssClass + '">' + m.parsed.label + '</td>' +
-          '<td><span class="timer ' + alertClass + '" data-state="' + m.effectiveState + '" data-until="' + until + '">' + timerText + '</span></td>' +
-          atkCell +
+          '<td class="' + effectiveState + '">' + displayStatus + '</td>' +
+          '<td><span class="timer ' + alertClass + '" data-state="' + effectiveState + '" data-until="' + (isReleasedPastGrace ? 0 : until) + '" data-loc="' + targetLoc + '">' + timerText + '</span></td>' +
+          actionCell +
         '</tr>';
       }).join("");
     }
@@ -795,12 +648,14 @@
       document.querySelectorAll(".timer").forEach(el => {
         const until = Number(el.dataset.until);
         const state = el.dataset.state;
-        if (until > 0) {
-          const diff = until - now;
-          el.textContent = formatCountdown(diff);
-          el.className = "timer " + getTimerAlertClass(state, diff);
-          if ((state === "Hospital" || state === "Jail") && diff <= -8) {
+        if ((state === "Hospital" || state === "Jail") && until > 0) {
+          const elapsedSinceRelease = now - until;
+          if (elapsedSinceRelease > RELEASE_GRACE_SEC) {
             needsResort = true;
+          } else {
+            const diff = Math.max(0, until - now);
+            el.textContent = formatCountdown(diff);
+            el.className = "timer " + getTimerAlertClass(state, diff);
           }
         }
       });
@@ -808,22 +663,28 @@
       document.querySelectorAll(".atk-btn").forEach(btn => {
         const until = Number(btn.dataset.until);
         const state = btn.dataset.state;
-        const locCode = btn.dataset.loc || "TC";
-        const isTraveling = btn.dataset.traveling === "1";
-        const diff = until > 0 ? until - now : 0;
-        if (isAttackReady(state, diff, locCode, isTraveling)) {
+        const loc = btn.dataset.loc;
+        const diff = until > 0 ? Math.max(0, until - now) : 0;
+        if (isAttackReady(state, diff, loc)) {
           btn.classList.add("atk-ready");
         } else {
           btn.classList.remove("atk-ready");
         }
       });
 
-      if (needsResort) {
+      document.querySelectorAll(".last-act").forEach(el => {
+        const ts = Number(el.dataset.ts);
+        if (ts > 0) {
+          el.textContent = formatShortLastAction({ timestamp: ts });
+        }
+      });
+
+      renderChainTick(document.getElementById("allyChain"), now);
+      renderChainTick(document.getElementById("enemyChain"), now);
+
+      if (needsResort && (cachedData.ally || cachedData.enemy)) {
         renderTables();
       }
-
-      if (chainState.ally) updateChainDisplay(chainState.ally, "allyChain", true);
-      if (chainState.enemy) updateChainDisplay(chainState.enemy, "enemyChain", false);
     }, 1000);
 
     setInterval(fetchWarData, 15000);
