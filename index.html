@@ -33,7 +33,6 @@
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; display: inline-block; transition: 0.15s; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
 
-    /* Timer Warning Animations */
     @keyframes flashYellow {
       0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
       50% { background-color: transparent; color: #fdd835; }
@@ -66,7 +65,7 @@
 
   <div class="board">
     <div class="panel">
-      <h2 id="allyTitle">Razers [40449]</h2>
+      <h2 id="allyTitle">Razers</h2>
       <table>
         <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th></tr></thead>
         <tbody id="allyBody"></tbody>
@@ -123,8 +122,8 @@
     }
 
     async function getFaction(id, key) {
-      const tornUrl = "https://torn.com" + id + "?selections=basic&key=" + encodeURIComponent(key);
-      const url = "https://corsproxy.io?" + encodeURIComponent(tornUrl);
+      const tornUrl = "https://api.torn.com/faction/" + id + "?selections=basic&key=" + encodeURIComponent(key);
+      const url = "https://corsproxy.io/?" + encodeURIComponent(tornUrl);
       const res = await fetch(url);
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
@@ -179,7 +178,7 @@
         }
 
         renderTables();
-        document.getElementById("statusBar").textContent = "Showing " + allyData.name + " • Auto-syncing every 20s • Last updated: " + new Date().toLocaleTimeString();
+        document.getElementById("statusBar").textContent = "Showing " + allyData.name + " - Auto-syncing every 20s - Last updated: " + new Date().toLocaleTimeString();
       } catch (err) {
         document.getElementById("statusBar").textContent = "Torn API Error: " + err.message;
       }
@@ -222,3 +221,58 @@
       tbody.innerHTML = members.map(m => {
         const until = m.status.until || 0;
         const diff = until > 0 ? until - now : 0;
+        const timerText = until > 0 ? formatCountdown(diff) : "-";
+        const alertClass = getTimerAlertClass(m.status.state, diff);
+        const readyClass = isEnemy && isAttackReady(m.status.state, diff) ? " atk-ready" : "";
+
+        const atkCol = isEnemy
+          ? '<td><a class="atk-btn' + readyClass + '" data-state="' + m.status.state + '" data-until="' + until + '" href="https://www.torn.com/loader.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>'
+          : '';
+
+        return '<tr>' +
+          '<td><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a></td>' +
+          '<td>' + m.level + '</td>' +
+          '<td class="' + m.status.state + '">' + m.status.state + '</td>' +
+          '<td><span class="timer ' + alertClass + '" data-state="' + m.status.state + '" data-until="' + until + '">' + timerText + '</span></td>' +
+          atkCol +
+        '</tr>';
+      }).join("");
+    }
+
+    function renderTables() {
+      renderRoster(cachedData.ally, "allyBody", false);
+      renderRoster(cachedData.enemy, "enemyBody", true);
+    }
+
+    setInterval(() => {
+      const now = Math.floor(Date.now() / 1000);
+
+      document.querySelectorAll(".timer").forEach(el => {
+        const until = Number(el.dataset.until);
+        const state = el.dataset.state;
+        if (until > 0) {
+          const diff = until - now;
+          el.textContent = formatCountdown(diff);
+          el.className = "timer " + getTimerAlertClass(state, diff);
+        }
+      });
+
+      document.querySelectorAll(".atk-btn").forEach(btn => {
+        const until = Number(btn.dataset.until);
+        const state = btn.dataset.state;
+        const diff = until > 0 ? until - now : 0;
+        if (isAttackReady(state, diff)) {
+          btn.classList.add("atk-ready");
+        } else {
+          btn.classList.remove("atk-ready");
+        }
+      });
+    }, 1000);
+
+    setInterval(fetchWarData, 20000);
+
+    updateActiveTab();
+    if (keyInput.value) fetchWarData();
+  </script>
+</body>
+</html>
