@@ -65,7 +65,7 @@
 
   <div class="board">
     <div class="panel">
-      <h2 id="allyTitle">Razers</h2>
+      <h2 id="allyTitle">Razers [40449]</h2>
       <table>
         <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th></tr></thead>
         <tbody id="allyBody"></tbody>
@@ -121,12 +121,39 @@
       }
     }
 
+    async function fetchWithFallbacks(tornUrl) {
+      const strategies = [
+        () => fetch(tornUrl).then(async r => {
+          if (!r.ok) throw new Error("Direct HTTP " + r.status);
+          return r.json();
+        }),
+        () => fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(tornUrl)).then(async r => {
+          if (!r.ok) throw new Error("AllOrigins HTTP " + r.status);
+          const wrap = await r.json();
+          if (!wrap.contents) throw new Error("Empty proxy response");
+          return JSON.parse(wrap.contents);
+        }),
+        () => fetch("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl)).then(async r => {
+          if (!r.ok) throw new Error("CodeTabs HTTP " + r.status);
+          return r.json();
+        })
+      ];
+
+      let lastErr = new Error("All connection methods failed");
+      for (const attempt of strategies) {
+        try {
+          const data = await attempt();
+          if (data && typeof data === "object") return data;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr;
+    }
+
     async function getFaction(id, key) {
-      const tornUrl = "https://api.torn.com/faction/" + id + "?selections=basic&key=" + encodeURIComponent(key);
-      const url = "https://corsproxy.io/?" + encodeURIComponent(tornUrl);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
+      const tornUrl = "https://api.torn.com/faction/" + id + "?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
+      const data = await fetchWithFallbacks(tornUrl);
       if (data.error) throw new Error(data.error.error);
       return data;
     }
@@ -178,7 +205,7 @@
         }
 
         renderTables();
-        document.getElementById("statusBar").textContent = "Showing " + allyData.name + " - Auto-syncing every 20s - Last updated: " + new Date().toLocaleTimeString();
+        document.getElementById("statusBar").textContent = "Showing " + allyData.name + " • Auto-syncing every 20s • Last updated: " + new Date().toLocaleTimeString();
       } catch (err) {
         document.getElementById("statusBar").textContent = "Torn API Error: " + err.message;
       }
