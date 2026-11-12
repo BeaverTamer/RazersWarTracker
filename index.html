@@ -6,225 +6,67 @@
   <title>Razers Alliance War Tracker</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #121212;
-      color: #e0e0e0;
-      margin: 0;
-      padding: 10px;
-      font-size: 0.84rem;
-    }
-    .top-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-    .key-group {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    button {
-      padding: 6px 12px;
-      border: 1px solid #333;
-      border-radius: 5px;
-      background: #1e1e1e;
-      color: #ccc;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.82rem;
-      transition: background 0.15s, color 0.15s;
-    }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; font-size: 0.84rem; }
+    .top-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+    .key-group { display: flex; gap: 6px; }
+    button { padding: 6px 12px; border: 1px solid #333; border-radius: 5px; background: #1e1e1e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: 0.15s; }
     button:hover { background: #2c2c2c; color: #fff; }
     button.active { background: #2e7d32; color: #fff; border-color: #4caf50; }
     button.load-btn { background: #1565c0; color: #fff; border-color: #1976d2; }
     button.load-btn:hover { background: #1976d2; }
-    input {
-      padding: 6px 10px;
-      border-radius: 5px;
-      border: 1px solid #333;
-      background: #1e1e1e;
-      color: #fff;
-      width: 175px;
-      font-size: 0.82rem;
-    }
-    .meta {
-      font-size: 0.76rem;
-      color: #888;
-      margin-bottom: 10px;
-    }
-    .board {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    @media (max-width: 860px) {
-      .board { grid-template-columns: 1fr; gap: 10px; }
-    }
-    .panel {
-      background: #181818;
-      border-radius: 6px;
-      padding: 10px;
-      border: 1px solid #2a2a2a;
-      overflow-x: hidden;
-    }
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      border-bottom: 1px solid #2e2e2e;
-      padding-bottom: 8px;
-      margin-bottom: 6px;
-    }
-    .panel-header h2 {
-      margin: 0;
-      font-size: 0.98rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .chain-badge {
-      font-family: monospace;
-      font-size: 0.78rem;
-      padding: 3px 8px;
-      border-radius: 4px;
-      background: #252525;
-      color: #999;
-      border: 1px solid #333;
-      white-space: nowrap;
-      font-weight: 700;
-    }
-    .chain-active {
-      background: rgba(46, 125, 50, 0.25);
-      color: #81c784;
-      border-color: #388e3c;
-    }
-    .chain-cooldown {
-      background: #b3e5fc;
-      color: #01579b;
-      border-color: #4fc3f7;
-      box-shadow: 0 0 6px rgba(179, 229, 252, 0.35);
-    }
-    @keyframes flashChainYellow {
-      0%, 100% { background-color: rgba(253, 216, 53, 0.3); color: #fff59d; border-color: #fbc02d; }
-      50% { background-color: #252525; color: #fdd835; border-color: #555; }
-    }
-    @keyframes flashChainRed {
-      0%, 100% { background-color: rgba(211, 47, 47, 0.55); color: #ffffff; border-color: #ff5252; }
-      50% { background-color: #252525; color: #ff5252; border-color: #555; }
-    }
-    .chain-warn-yellow { animation: flashChainYellow 1.6s infinite; }
-    .chain-warn-red { animation: flashChainRed 0.65s infinite; }
+    input { padding: 6px 10px; border-radius: 5px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 170px; font-size: 0.85rem; }
+    .meta { font-size: 0.78rem; color: #999; margin-bottom: 10px; }
+    .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
+    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; }
+    h2 { margin: 0 0 8px 0; font-size: 1rem; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    thead tr { height: 24px; border-bottom: 1px solid #2e2e2e; }
+    th { text-align: left; padding: 0 4px; color: #888; font-weight: 600; font-size: 0.76rem; white-space: nowrap; }
+    tbody tr { height: 26px; background-color: #181818; }
+    tbody tr:nth-child(even) { background-color: #202020; }
+    tbody tr:hover { background-color: #282828; }
+    td { text-align: left; padding: 0 4px; height: 26px; line-height: 26px; white-space: nowrap; vertical-align: middle; border: none; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    th {
-      text-align: left;
-      padding: 4px 5px;
-      color: #777;
-      font-weight: 600;
-      font-size: 0.75rem;
-      border-bottom: 1px solid #2a2a2a;
-    }
-    col.col-player { width: 38%; }
-    col.col-lvl { width: 10%; }
-    col.col-status { width: 20%; }
-    col.col-timer { width: 17%; }
-    col.col-action { width: 15%; }
-
-    tbody tr {
-      height: 26px;
-      background-color: #181818;
-    }
-    tbody tr:nth-child(even) {
-      background-color: #202020;
-    }
-    tbody tr:hover {
-      background-color: #282828;
-    }
-    td {
-      padding: 0 5px;
-      height: 26px;
-      line-height: 26px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      vertical-align: middle;
-    }
-
-    .player-cell {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      height: 26px;
-      overflow: hidden;
-    }
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: inline-block;
-    }
+    /* Player Cell & Activity Dots */
+    .player-cell { display: flex; align-items: center; gap: 5px; height: 26px; max-width: 155px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
     .dot-Online { background-color: #4caf50; box-shadow: 0 0 4px rgba(76, 175, 80, 0.7); }
     .dot-Idle { background-color: #ff9800; }
     .dot-Offline { background-color: #555555; }
-
-    a.player-link {
-      color: #f0f0f0;
-      text-decoration: none;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    a.player-link { color: #fff; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
-    .last-act {
-      color: #757575;
-      font-size: 0.72rem;
-      flex-shrink: 0;
-    }
+    .last-act { font-size: 0.7rem; color: #777; flex-shrink: 0; }
 
     .Okay { color: #66bb6a; }
-    .Hospital { color: #ef5350; font-weight: 600; }
-    .Jail { color: #ffa726; font-weight: 600; }
-    .Traveling, .Abroad { color: #42a5f5; }
-    .Fallen { color: #666666; font-style: italic; }
-
-    .timer {
-      font-family: monospace;
-      font-size: 0.8rem;
-      padding: 1px 4px;
-      border-radius: 3px;
-      display: inline-block;
-      line-height: 1.3;
-    }
-
-    a.atk-btn {
-      background: #7f1d1d;
-      color: #e0e0e0;
-      padding: 2px 7px;
-      border-radius: 4px;
-      text-decoration: none;
-      font-size: 0.75rem;
-      font-weight: 700;
-      display: inline-block;
-      line-height: 1.35;
-      transition: background 0.15s;
-    }
+    .Abroad { color: #81c784; }
+    .Hospital { color: #ef5350; font-weight: bold; }
+    .Jail { color: #ffa726; font-weight: bold; }
+    .Traveling { color: #42a5f5; }
+    .Fallen { color: #757575; font-style: italic; }
+    .timer { font-family: monospace; font-size: 0.82rem; padding: 1px 4px; border-radius: 3px; display: inline-block; line-height: 1.2; }
+    a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 7px; border-radius: 3px; text-decoration: none; font-size: 0.75rem; font-weight: bold; display: inline-block; line-height: 1.3; transition: 0.15s; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
+    .no-atk { color: #555; font-size: 0.78rem; padding-left: 6px; }
 
+    /* Chain Tracker Badge */
+    .chain-badge { font-size: 0.76rem; font-family: monospace; padding: 2px 7px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; font-weight: 600; }
+    .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #2e7d32; }
+    .chain-cooldown { background: #b3e5fc; color: #01579b; border-color: #4fc3f7; font-weight: bold; box-shadow: 0 0 6px rgba(179, 229, 252, 0.45); }
+
+    @keyframes flashChainYellow {
+      0%, 100% { background-color: rgba(253, 216, 53, 0.35); color: #fff59d; border-color: #fbc02d; }
+      50% { background-color: #252525; color: #fdd835; border-color: #555; }
+    }
+    @keyframes flashChainRed {
+      0%, 100% { background-color: rgba(211, 47, 47, 0.85); color: #ffffff; border-color: #ff5252; }
+      50% { background-color: #252525; color: #ff5252; border-color: #7f1d1d; }
+    }
+    .chain-warn-yellow { animation: flashChainYellow 1.5s infinite; }
+    .chain-warn-red { animation: flashChainRed 0.65s infinite; }
+
+    /* Member Timer & Attack Button Warning Animations */
     @keyframes flashYellow {
       0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
       50% { background-color: transparent; color: #fdd835; }
@@ -234,7 +76,7 @@
       50% { background-color: transparent; color: #ff5252; }
     }
     @keyframes flashAttackReady {
-      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.75); }
+      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.8); }
       50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; }
     }
 
@@ -243,18 +85,15 @@
     .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
     .atk-ready { animation: flashAttackReady 1.5s infinite; }
 
-    @media (max-width: 520px) {
-      body { padding: 6px; font-size: 0.78rem; }
-      .panel { padding: 7px; }
-      input { width: 140px; }
+    @media (max-width: 500px) {
+      body { padding: 6px; }
+      .panel { padding: 6px; }
+      table { font-size: 0.76rem; }
       td, th { padding: 0 3px; }
-      col.col-player { width: 37%; }
-      col.col-lvl { width: 9%; }
-      col.col-status { width: 20%; }
-      col.col-timer { width: 18%; }
-      col.col-action { width: 16%; }
+      .player-cell { max-width: 112px; gap: 4px; }
+      .last-act { font-size: 0.66rem; }
       a.atk-btn { padding: 2px 5px; font-size: 0.72rem; }
-      .timer { font-size: 0.74rem; padding: 1px 2px; }
+      input { width: 145px; }
     }
   </style>
 </head>
@@ -271,35 +110,21 @@
 
   <div class="board">
     <div class="panel">
-      <div class="panel-header">
-        <h2 id="allyTitle">Razers [40449]</h2>
-        <span class="chain-badge" id="allyChain">Chain: -</span>
-      </div>
+      <h2>
+        <span id="allyTitle">Razers</span>
+        <span id="allyChain" class="chain-badge">Chain: -</span>
+      </h2>
       <table>
-        <colgroup>
-          <col class="col-player" />
-          <col class="col-lvl" />
-          <col class="col-status" />
-          <col class="col-timer" />
-          <col class="col-action" />
-        </colgroup>
         <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="allyBody"></tbody>
       </table>
     </div>
     <div class="panel">
-      <div class="panel-header">
-        <h2 id="enemyTitle">Warring Opponent</h2>
-        <span class="chain-badge" id="enemyChain">Chain: -</span>
-      </div>
+      <h2>
+        <span id="enemyTitle">Warring Opponent</span>
+        <span id="enemyChain" class="chain-badge">Chain: -</span>
+      </h2>
       <table>
-        <colgroup>
-          <col class="col-player" />
-          <col class="col-lvl" />
-          <col class="col-status" />
-          <col class="col-timer" />
-          <col class="col-action" />
-        </colgroup>
         <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="enemyBody"></tbody>
       </table>
@@ -314,20 +139,7 @@
       { id: 40385, name: "RazerResistance" }
     ];
 
-    const COUNTRY_CODES = [
-      { keys: ["torn", "torn city"], code: "TC" },
-      { keys: ["mexico", "mexican"], code: "MEX" },
-      { keys: ["cayman", "caymanian"], code: "CAY" },
-      { keys: ["canada", "canadian"], code: "CAN" },
-      { keys: ["hawaii", "hawaiian"], code: "HAW" },
-      { keys: ["united kingdom", "uk", "british", "london"], code: "UK" },
-      { keys: ["argentina", "argentinian"], code: "ARG" },
-      { keys: ["switzerland", "swiss"], code: "SWI" },
-      { keys: ["japan", "japanese"], code: "JAP" },
-      { keys: ["china", "chinese"], code: "CHI" },
-      { keys: ["uae", "united arab emirates", "emirati", "dubai"], code: "UAE" },
-      { keys: ["south africa", "south african"], code: "SA" }
-    ];
+    const RELEASE_GRACE_SECONDS = 8;
 
     let selectedFactionId = 40449;
     let cachedData = { ally: null, enemy: null };
@@ -362,57 +174,54 @@
       }
     }
 
-    async function fetchWithFallback(tornUrl) {
-      try {
-        const directRes = await fetch(tornUrl);
-        if (directRes.ok) {
-          const data = await directRes.json();
-          if (!data.error) return data;
-          throw new Error(data.error.error);
-        }
-      } catch (e) {
-        if (e.message && !e.message.includes("fetch") && !e.message.includes("Network")) {
-          throw e;
-        }
-      }
-
-      const proxies = [
+    async function fetchTornEndpoint(endpointPath, key) {
+      const sep = endpointPath.includes("?") ? "&" : "?";
+      const tornUrl = "https://api.torn.com/" + endpointPath + sep + "key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
+      const candidates = [
+        tornUrl,
         "https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl),
         "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl)
       ];
 
-      for (const proxyUrl of proxies) {
+      let lastErr = "Unable to connect";
+      for (const url of candidates) {
         try {
-          const res = await fetch(proxyUrl);
-          if (!res.ok) continue;
-          const data = await res.json();
+          const res = await fetch(url);
+          if (!res.ok) {
+            lastErr = "HTTP " + res.status;
+            continue;
+          }
+          const text = await res.text();
+          const data = JSON.parse(text);
           if (data.error) throw new Error(data.error.error);
           return data;
         } catch (err) {
-          if (err.message && !err.message.includes("fetch") && !err.message.includes("JSON")) {
+          if (err.message && !err.message.includes("Failed to fetch") && !err.message.includes("Unexpected token")) {
             throw err;
           }
+          lastErr = err.message;
         }
       }
-      throw new Error("Unable to reach Torn API");
+      throw new Error(lastErr);
     }
 
     async function getFactionFull(id, key) {
-      const v1Url = "https://api.torn.com/faction/" + id + "?selections=basic,chain&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
-      const v2MembersUrl = "https://api.torn.com/v2/faction/" + id + "/members?key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
+      const v1Data = await fetchTornEndpoint("faction/" + id + "?selections=basic,chain", key);
 
-      const [v1Data, v2Data] = await Promise.all([
-        fetchWithFallback(v1Url),
-        fetchWithFallback(v2MembersUrl).catch(() => null)
-      ]);
-
-      if (v2Data && Array.isArray(v2Data.members) && v1Data.members) {
-        v2Data.members.forEach(m => {
-          if (v1Data.members[m.id] && m.status) {
-            v1Data.members[m.id].status = m.status;
-          }
-        });
+      try {
+        const v2Members = await fetchTornEndpoint("v2/faction/" + id + "/members?striptags=true", key);
+        if (v2Members && Array.isArray(v2Members.members) && v1Data.members) {
+          v2Members.members.forEach(m => {
+            if (v1Data.members[m.id]) {
+              v1Data.members[m.id].status = m.status;
+              if (m.last_action) v1Data.members[m.id].last_action = m.last_action;
+            }
+          });
+        }
+      } catch (e) {
+        // Keep v1 member status if v2 endpoint is temporarily unavailable
       }
+
       return v1Data;
     }
 
@@ -439,116 +248,200 @@
       return null;
     }
 
+    function formatShortTime(sec) {
+      if (sec <= 0) return "00:00";
+      const h = Math.floor(sec / 3600);
+      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
+      const s = String(sec % 60).padStart(2, "0");
+      return h > 0 ? (h + ":" + m + ":" + s) : (m + ":" + s);
+    }
+
+    function updateChainDisplay(chainObj, elementId, isAlly) {
+      const el = document.getElementById(elementId);
+      if (!chainObj || !chainObj.current || chainObj.current === 0) {
+        el.textContent = "Chain: None";
+        el.className = "chain-badge";
+        return;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const current = chainObj.current;
+      const max = chainObj.max || "";
+
+      if (chainObj.cooldown && chainObj.cooldown > 0) {
+        const end = chainObj.end || now;
+        const rem = Math.max(0, (end + chainObj.cooldown) - now);
+        if (rem > 0) {
+          el.textContent = "Chain: " + current + " (CD " + formatShortTime(rem) + ")";
+          el.className = "chain-badge chain-cooldown";
+          return;
+        }
+      }
+
+      const timeoutRem = chainObj.timeout || 0;
+      const maxStr = max ? "/" + max : "";
+      el.textContent = "Chain: " + current + maxStr + " (" + formatShortTime(timeoutRem) + ")";
+
+      if (isAlly) {
+        if (timeoutRem > 0 && timeoutRem < 60) {
+          el.className = "chain-badge chain-warn-red";
+        } else if (timeoutRem > 0 && timeoutRem < 150) {
+          el.className = "chain-badge chain-warn-yellow";
+        } else {
+          el.className = "chain-badge chain-active";
+        }
+      } else {
+        if (timeoutRem > 0 && timeoutRem <= 60) {
+          el.className = "chain-badge chain-warn-red";
+        } else {
+          el.className = "chain-badge chain-active";
+        }
+      }
+    }
+
     async function fetchWarData() {
       const key = keyInput.value.trim();
       if (!key) {
         document.getElementById("statusBar").textContent = "Please paste a Torn Public API key first.";
         return;
       }
-      document.getElementById("statusBar").textContent = "Fetching live war data...";
+      document.getElementById("statusBar").textContent = "Fetching data for Faction " + selectedFactionId + "...";
 
       try {
         const allyData = await getFactionFull(selectedFactionId, key);
         cachedData.ally = allyData;
         document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
+        updateChainDisplay(allyData.chain, "allyChain", true);
 
         const enemyId = findOpponentId(allyData, selectedFactionId);
         if (enemyId) {
           const enemyData = await getFactionFull(enemyId, key);
           cachedData.enemy = enemyData;
           document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
+          updateChainDisplay(enemyData.chain, "enemyChain", false);
         } else {
           cachedData.enemy = null;
           document.getElementById("enemyTitle").textContent = "No Active War";
+          updateChainDisplay(null, "enemyChain", false);
         }
 
-        updateChainBadges();
         renderTables();
-        document.getElementById("statusBar").textContent = "Showing " + allyData.name + " • Auto-syncing every 15s • Updated: " + new Date().toLocaleTimeString();
+        document.getElementById("statusBar").textContent = "Showing " + allyData.name + " • Auto-syncing every 15s • Last updated: " + new Date().toLocaleTimeString();
       } catch (err) {
         document.getElementById("statusBar").textContent = "Torn API Error: " + err.message;
       }
     }
 
-    function detectCountryCode(text) {
-      if (!text) return null;
-      const lower = text.toLowerCase();
-      for (const entry of COUNTRY_CODES) {
-        for (const k of entry.keys) {
-          const regex = new RegExp("\b" + k + "\b", "i");
-          if (regex.test(lower)) return entry.code;
-        }
-      }
-      return null;
+    function getCountryCode(text) {
+      if (!text) return "TC";
+      const t = text.toLowerCase();
+      if (t.includes("mexico") || t.includes("mexican")) return "MEX";
+      if (t.includes("cayman")) return "CAY";
+      if (t.includes("canada") || t.includes("canadian")) return "CAN";
+      if (t.includes("hawaii")) return "HAW";
+      if (t.includes("united kingdom") || t.includes("british") || /uk/.test(t)) return "UK";
+      if (t.includes("argentin")) return "ARG";
+      if (t.includes("switzerland") || t.includes("swiss")) return "SWI";
+      if (t.includes("japan")) return "JAP";
+      if (t.includes("china") || t.includes("chinese")) return "CHI";
+      if (t.includes("uae") || t.includes("emirates") || t.includes("emirati") || t.includes("dubai")) return "UAE";
+      if (t.includes("south africa") || t.includes("south african")) return "SA";
+      if (t.includes("torn")) return "TC";
+      return "";
     }
 
-    function parseMemberLocation(statusObj) {
-      const state = statusObj.state || "Okay";
+    function getLocationCodeFromStatus(statusObj) {
+      if (!statusObj) return "TC";
+      const combined = (statusObj.description || "") + " " + (statusObj.details || "");
+      return getCountryCode(combined) || "TC";
+    }
+
+    function formatTornStatus(statusObj, effectiveState) {
+      if (!statusObj) return { text: "-", cssClass: "", sortTier: 4, sortKey: "" };
+      const state = effectiveState || statusObj.state || "";
       const desc = statusObj.description || "";
-      const lower = desc.toLowerCase();
+      const details = statusObj.details || "";
+      const combined = desc + " " + details;
 
       if (state === "Fallen") {
-        return { label: "Fallen", cssClass: "Fallen", tier: 5, sortKey: "" };
+        return { text: "Fallen", cssClass: "Fallen", sortTier: 5, sortKey: "" };
       }
 
       if (state === "Hospital") {
-        const code = detectCountryCode(desc) || "TC";
-        return { label: "Hosp (" + code + ")", cssClass: "Hospital", tier: 1, sortKey: code };
+        const code = getCountryCode(combined) || "TC";
+        return { text: "Hosp (" + code + ")", cssClass: "Hospital", sortTier: 1, sortKey: code };
       }
 
       if (state === "Jail") {
-        const code = detectCountryCode(desc) || "TC";
-        return { label: "Jail (" + code + ")", cssClass: "Jail", tier: 1, sortKey: code };
+        const code = getCountryCode(combined) || "TC";
+        return { text: "Jail (" + code + ")", cssClass: "Jail", sortTier: 1, sortKey: code };
       }
 
       if (state === "Traveling") {
-        let route = "Traveling";
-        const fromToMatch = lower.match(/from\s+([a-z\s]+?)\s+to\s+([a-z\s]+)/i);
-        if (fromToMatch) {
-          const fromCode = detectCountryCode(fromToMatch[1]) || "TC";
-          const toCode = detectCountryCode(fromToMatch[2]) || "TC";
-          route = fromCode + " > " + toCode;
-        } else if (lower.includes("returning to torn")) {
-          const fromPart = desc.split(/from/i)[1] || "";
-          const fromCode = detectCountryCode(fromPart) || "ABROAD";
-          route = fromCode + " > TC";
-        } else if (lower.includes("traveling to")) {
-          const toPart = desc.split(/to/i)[1] || "";
-          const toCode = detectCountryCode(toPart) || "ABROAD";
-          route = "TC > " + toCode;
-        } else {
-          const code = detectCountryCode(desc);
-          if (code && code !== "TC") route = "TC > " + code;
+        const lower = desc.toLowerCase();
+        // Check returning first because "Returning to Torn from X" contains both "to" and "from"
+        const retMatch = lower.match(/returning\s+(?:to\s+torn\s+)?from\s+(.+)/);
+        if (retMatch) {
+          const fromCode = getCountryCode(retMatch[1]) || "?";
+          const route = fromCode + " > TC";
+          return { text: route, cssClass: "Traveling", sortTier: 2, sortKey: route };
         }
-        return { label: route, cssClass: "Traveling", tier: 2, sortKey: route };
+        const fromToMatch = lower.match(/from\s+(.+?)\s+to\s+(.+)/);
+        if (fromToMatch) {
+          const fromCode = getCountryCode(fromToMatch[1]) || "TC";
+          const toCode = getCountryCode(fromToMatch[2]) || "?";
+          const route = fromCode + " > " + toCode;
+          return { text: route, cssClass: "Traveling", sortTier: 2, sortKey: route };
+        }
+        const toMatch = lower.match(/traveling\s+to\s+(.+)/);
+        if (toMatch) {
+          const toCode = getCountryCode(toMatch[1]) || "?";
+          const route = "TC > " + toCode;
+          return { text: route, cssClass: "Traveling", sortTier: 2, sortKey: route };
+        }
+        const fallbackCode = getCountryCode(combined);
+        if (fallbackCode && fallbackCode !== "TC") {
+          const route = "TC > " + fallbackCode;
+          return { text: route, cssClass: "Traveling", sortTier: 2, sortKey: route };
+        }
+        return { text: "Traveling", cssClass: "Traveling", sortTier: 2, sortKey: "ZZZ" };
       }
 
       if (state === "Abroad") {
-        const code = detectCountryCode(desc) || "ABROAD";
-        return { label: "Okay (" + code + ")", cssClass: "Okay", tier: 3, sortKey: code };
+        const code = getCountryCode(combined);
+        if (code && code !== "TC") {
+          return { text: "Okay (" + code + ")", cssClass: "Abroad", sortTier: 3, sortKey: code };
+        }
+        return { text: "Abroad", cssClass: "Abroad", sortTier: 3, sortKey: "ZZZ" };
       }
 
-      const okCode = detectCountryCode(desc) || "TC";
-      if (okCode !== "TC") {
-        return { label: "Okay (" + okCode + ")", cssClass: "Okay", tier: 3, sortKey: okCode };
+      if (state === "Okay") {
+        const code = getCountryCode(combined) || "TC";
+        if (code !== "TC") {
+          return { text: "Okay (" + code + ")", cssClass: "Abroad", sortTier: 3, sortKey: code };
+        }
+        return { text: "Okay (TC)", cssClass: "Okay", sortTier: 4, sortKey: "TC" };
       }
-      return { label: "Okay (TC)", cssClass: "Okay", tier: 4, sortKey: "TC" };
+
+      return { text: state || desc, cssClass: state, sortTier: 4, sortKey: "" };
     }
 
-    function formatShortLastAction(lastActionObj) {
-      if (!lastActionObj) return "";
-      if (lastActionObj.timestamp) {
-        const diff = Math.max(0, Math.floor(Date.now() / 1000) - Number(lastActionObj.timestamp));
-        if (diff < 60) return diff + "s";
-        if (diff < 3600) return Math.floor(diff / 60) + "m";
-        if (diff < 86400) return Math.floor(diff / 3600) + "h";
-        return Math.floor(diff / 86400) + "d";
-      }
-      if (lastActionObj.relative) {
-        const m = lastActionObj.relative.match(/(\d+)\s*(sec|min|hour|day)/i);
-        if (m) return m[1] + m[2][0].toLowerCase();
-      }
-      return "";
+    function formatCompactLastAction(lastActionObj) {
+      if (!lastActionObj || !lastActionObj.relative) return "";
+      const rel = lastActionObj.relative.toLowerCase();
+      const match = rel.match(/(\d+)\s*(second|minute|hour|day|week|month|year)/);
+      if (!match) return "";
+      const num = match[1];
+      const unitMap = {
+        second: "s",
+        minute: "m",
+        hour: "h",
+        day: "d",
+        week: "w",
+        month: "mo",
+        year: "y"
+      };
+      return num + (unitMap[match[2]] || "");
     }
 
     function formatCountdown(diffSeconds) {
@@ -557,13 +450,6 @@
       const m = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, "0");
       const s = String(diffSeconds % 60).padStart(2, "0");
       return h + ":" + m + ":" + s;
-    }
-
-    function formatShortTime(diffSeconds) {
-      if (diffSeconds <= 0) return "00:00";
-      const m = String(Math.floor(diffSeconds / 60)).padStart(2, "0");
-      const s = String(diffSeconds % 60).padStart(2, "0");
-      return m + ":" + s;
     }
 
     function getTimerAlertClass(state, diffSeconds) {
@@ -581,81 +467,6 @@
       return false;
     }
 
-    function renderSingleChain(chainObj, elId, isAlly) {
-      const el = document.getElementById(elId);
-      if (!chainObj || (!chainObj.current && !chainObj.cooldown)) {
-        el.textContent = "Chain: None";
-        el.className = "chain-badge";
-        return;
-      }
-
-      if (chainObj.cooldown && chainObj.cooldown > 0) {
-        el.textContent = "Chain: " + chainObj.current + " (CD " + formatShortTime(chainObj.cooldown) + ")";
-        el.className = "chain-badge chain-cooldown";
-        return;
-      }
-
-      const timeout = chainObj.timeout || 0;
-      const target = chainObj.max ? "/" + chainObj.max : "";
-      el.textContent = "Chain: " + chainObj.current + target + " (" + formatShortTime(timeout) + ")";
-
-      let cls = "chain-badge chain-active";
-      if (isAlly && timeout > 0) {
-        if (timeout < 60) cls += " chain-warn-red";
-        else if (timeout < 150) cls += " chain-warn-yellow";
-      } else if (!isAlly && timeout > 0 && timeout <= 60) {
-        cls += " chain-warn-red";
-      }
-      el.className = cls;
-    }
-
-    function updateChainBadges() {
-      renderSingleChain(cachedData.ally ? cachedData.ally.chain : null, "allyChain", true);
-      renderSingleChain(cachedData.enemy ? cachedData.enemy.chain : null, "enemyChain", false);
-    }
-
-    function getEffectiveMemberState(m, now) {
-      const rawState = m.status.state || "Okay";
-      const until = Number(m.status.until || 0);
-      const diff = until > 0 ? until - now : 0;
-
-      // Grace window: keep expired Hospital/Jail timers at the top flashing Attack for 8 seconds before moving to Okay
-      if ((rawState === "Hospital" || rawState === "Jail") && until > 0 && diff <= 0) {
-        const elapsedSinceRelease = now - until;
-        if (elapsedSinceRelease > 8) {
-          const code = detectCountryCode(m.status.description) || "TC";
-          const promotedState = code !== "TC" ? "Abroad" : "Okay";
-          return {
-            effectiveState: promotedState,
-            loc: {
-              label: "Okay (" + code + ")",
-              cssClass: "Okay",
-              tier: code !== "TC" ? 3 : 4,
-              sortKey: code
-            },
-            until: 0,
-            diff: 0,
-            inGraceWindow: false
-          };
-        }
-        return {
-          effectiveState: rawState,
-          loc: parseMemberLocation(m.status),
-          until: until,
-          diff: 0,
-          inGraceWindow: true
-        };
-      }
-
-      return {
-        effectiveState: rawState,
-        loc: parseMemberLocation(m.status),
-        until: until,
-        diff: diff,
-        inGraceWindow: false
-      };
-    }
-
     function renderRoster(factionData, tbodyId) {
       const tbody = document.getElementById(tbodyId);
       if (!factionData || !factionData.members) {
@@ -665,47 +476,67 @@
 
       const now = Math.floor(Date.now() / 1000);
       const members = Object.entries(factionData.members).map(([id, m]) => {
-        const eff = getEffectiveMemberState(m, now);
-        return { id, ...m, eff };
+        const rawState = m.status ? m.status.state : "";
+        const until = (m.status && m.status.until) ? m.status.until : 0;
+        const diff = until > 0 ? until - now : 0;
+
+        const isTimedState = (rawState === "Hospital" || rawState === "Jail");
+        const inPostReleaseGrace = isTimedState && until > 0 && diff <= 0 && diff > -RELEASE_GRACE_SECONDS;
+        const autoReleased = isTimedState && until > 0 && diff <= -RELEASE_GRACE_SECONDS;
+
+        const effectiveState = autoReleased ? "Okay" : rawState;
+        const parsed = formatTornStatus(m.status, effectiveState);
+
+        return {
+          id,
+          ...m,
+          rawState,
+          effectiveState,
+          until,
+          diff,
+          inPostReleaseGrace,
+          autoReleased,
+          parsed
+        };
       });
 
       members.sort((a, b) => {
-        if (a.eff.loc.tier !== b.eff.loc.tier) return a.eff.loc.tier - b.eff.loc.tier;
-        if (a.eff.loc.tier === 1) {
-          const aUntil = a.eff.until || 9999999999;
-          const bUntil = b.eff.until || 9999999999;
-          if (aUntil !== bUntil) return aUntil - bUntil;
+        if (a.parsed.sortTier !== b.parsed.sortTier) {
+          return a.parsed.sortTier - b.parsed.sortTier;
         }
-        if (a.eff.loc.sortKey !== b.eff.loc.sortKey) {
-          return a.eff.loc.sortKey.localeCompare(b.eff.loc.sortKey);
+        if (a.parsed.sortTier === 1) {
+          return (a.until || 9999999999) - (b.until || 9999999999);
+        }
+        if (a.parsed.sortTier === 2 || a.parsed.sortTier === 3) {
+          const cmp = a.parsed.sortKey.localeCompare(b.parsed.sortKey);
+          if (cmp !== 0) return cmp;
         }
         return (a.name || "").localeCompare(b.name || "");
       });
 
       tbody.innerHTML = members.map(m => {
-        const { effectiveState, loc, until, diff } = m.eff;
-        const timerText = until > 0 ? formatCountdown(diff) : "-";
-        const alertClass = getTimerAlertClass(effectiveState, diff);
-        const readyClass = isAttackReady(effectiveState, diff) ? " atk-ready" : "";
+        const showTimer = (m.effectiveState === "Hospital" || m.effectiveState === "Jail") && m.until > 0;
+        const timerText = showTimer ? formatCountdown(m.diff) : "-";
+        const alertClass = showTimer ? getTimerAlertClass(m.effectiveState, m.diff) : "";
+        const readyClass = isAttackReady(m.effectiveState, m.diff) ? " atk-ready" : "";
+        const actState = (m.last_action && m.last_action.status) ? m.last_action.status : "Offline";
+        const actShort = formatCompactLastAction(m.last_action);
+        const locCode = getLocationCodeFromStatus(m.status);
 
-        const dotState = m.last_action && m.last_action.status ? m.last_action.status : "Offline";
-        const shortAct = formatShortLastAction(m.last_action);
-        const actSpan = shortAct ? '<span class="last-act">' + shortAct + '</span>' : '';
+        const atkCol = (m.effectiveState === "Fallen")
+          ? '<td><span class="no-atk">-</span></td>'
+          : '<td><a class="atk-btn' + readyClass + '" data-state="' + m.effectiveState + '" data-until="' + m.until + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
-        const actionCell = effectiveState === "Fallen"
-          ? '<td><span style="color:#555;">-</span></td>'
-          : '<td><a class="atk-btn' + readyClass + '" data-state="' + effectiveState + '" data-until="' + until + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
-
-        return '<tr>' +
+        return '<tr data-member-row="1">' +
           '<td><div class="player-cell">' +
-            '<span class="status-dot dot-' + dotState + '" title="' + dotState + '"></span>' +
+            '<span class="dot dot-' + actState + '" title="' + actState + '"></span>' +
             '<a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a>' +
-            actSpan +
+            (actShort ? '<span class="last-act">' + actShort + '</span>' : '') +
           '</div></td>' +
           '<td>' + m.level + '</td>' +
-          '<td class="' + loc.cssClass + '">' + loc.label + '</td>' +
-          '<td><span class="timer ' + alertClass + '" data-state="' + effectiveState + '" data-until="' + until + '">' + timerText + '</span></td>' +
-          actionCell +
+          '<td class="status-cell ' + m.parsed.cssClass + '" data-loc="' + locCode + '">' + m.parsed.text + '</td>' +
+          '<td><span class="timer ' + alertClass + '" data-state="' + m.effectiveState + '" data-until="' + m.until + '">' + timerText + '</span></td>' +
+          atkCol +
         '</tr>';
       }).join("");
     }
@@ -722,40 +553,40 @@
       document.querySelectorAll(".timer").forEach(el => {
         const until = Number(el.dataset.until);
         const state = el.dataset.state;
-        if (until > 0) {
+        if ((state === "Hospital" || state === "Jail") && until > 0) {
           const diff = until - now;
-          el.textContent = formatCountdown(diff);
-          el.className = "timer " + getTimerAlertClass(state, diff);
-          if ((state === "Hospital" || state === "Jail") && (now - until) > 8) {
+          if (diff <= -RELEASE_GRACE_SECONDS) {
             needsResort = true;
+          } else {
+            el.textContent = formatCountdown(diff);
+            el.className = "timer " + getTimerAlertClass(state, diff);
           }
-        }
-      });
-
-      document.querySelectorAll(".atk-btn").forEach(btn => {
-        const until = Number(btn.dataset.until);
-        const state = btn.dataset.state;
-        const diff = until > 0 ? until - now : 0;
-        if (isAttackReady(state, diff)) {
-          btn.classList.add("atk-ready");
-        } else {
-          btn.classList.remove("atk-ready");
         }
       });
 
       if (needsResort) {
         renderTables();
+      } else {
+        document.querySelectorAll(".atk-btn").forEach(btn => {
+          const until = Number(btn.dataset.until);
+          const state = btn.dataset.state;
+          const diff = until > 0 ? until - now : 0;
+          if (isAttackReady(state, diff)) {
+            btn.classList.add("atk-ready");
+          } else {
+            btn.classList.remove("atk-ready");
+          }
+        });
       }
 
       if (cachedData.ally && cachedData.ally.chain) {
-        if (cachedData.ally.chain.cooldown > 0) cachedData.ally.chain.cooldown--;
-        else if (cachedData.ally.chain.timeout > 0) cachedData.ally.chain.timeout--;
+        if (cachedData.ally.chain.timeout > 0) cachedData.ally.chain.timeout -= 1;
+        updateChainDisplay(cachedData.ally.chain, "allyChain", true);
       }
       if (cachedData.enemy && cachedData.enemy.chain) {
-        if (cachedData.enemy.chain.cooldown > 0) cachedData.enemy.chain.cooldown--;
-        else if (cachedData.enemy.chain.timeout > 0) cachedData.enemy.chain.timeout--;
+        if (cachedData.enemy.chain.timeout > 0) cachedData.enemy.chain.timeout -= 1;
+        updateChainDisplay(cachedData.enemy.chain, "enemyChain", false);
       }
-      updateChainBadges();
     }, 1000);
 
     setInterval(fetchWarData, 15000);
