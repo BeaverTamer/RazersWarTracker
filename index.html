@@ -27,11 +27,30 @@
     .Hospital { color: #ef5350; font-weight: bold; }
     .Jail { color: #ffa726; font-weight: bold; }
     .Traveling, .Abroad { color: #42a5f5; }
-    .timer { font-family: monospace; font-size: 0.95rem; }
+    .timer { font-family: monospace; font-size: 0.95rem; padding: 2px 6px; border-radius: 4px; }
     a.player-link { color: #fff; text-decoration: none; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
-    a.atk-btn { background: #b71c1c; color: #fff; padding: 3px 8px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; }
-    a.atk-btn:hover { background: #d32f2f; }
+    a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; display: inline-block; transition: 0.15s; }
+    a.atk-btn:hover { background: #b71c1c; color: #fff; }
+
+    /* Timer Warning Animations */
+    @keyframes flashYellow {
+      0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
+      50% { background-color: transparent; color: #fdd835; }
+    }
+    @keyframes flashRed {
+      0%, 100% { background-color: rgba(229, 57, 53, 0.45); color: #ffffff; }
+      50% { background-color: transparent; color: #ff5252; }
+    }
+    @keyframes flashAttackReady {
+      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 8px rgba(76, 175, 80, 0.8); }
+      50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; }
+    }
+
+    .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
+    .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: bold; }
+    .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
+    .atk-ready { animation: flashAttackReady 1.5s infinite; }
   </style>
 </head>
 <body>
@@ -47,7 +66,7 @@
 
   <div class="board">
     <div class="panel">
-      <h2 id="allyTitle">Friendly Faction</h2>
+      <h2 id="allyTitle">Razers [40449]</h2>
       <table>
         <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th></tr></thead>
         <tbody id="allyBody"></tbody>
@@ -97,6 +116,10 @@
       document.querySelectorAll("#factionTabs button").forEach(b => {
         b.classList.toggle("active", Number(b.dataset.id) === selectedFactionId);
       });
+      const current = OUR_FACTIONS.find(f => f.id === selectedFactionId);
+      if (current) {
+        document.getElementById("allyTitle").textContent = current.name + " [" + current.id + "]";
+      }
     }
 
     async function getFaction(id, key) {
@@ -162,14 +185,26 @@
       }
     }
 
-    function formatCountdown(untilUnix) {
-      if (!untilUnix) return "-";
-      const diff = untilUnix - Math.floor(Date.now() / 1000);
-      if (diff <= 0) return "00:00:00";
-      const h = String(Math.floor(diff / 3600)).padStart(2, "0");
-      const m = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
-      const s = String(diff % 60).padStart(2, "0");
+    function formatCountdown(diffSeconds) {
+      if (diffSeconds <= 0) return "00:00:00";
+      const h = String(Math.floor(diffSeconds / 3600)).padStart(2, "0");
+      const m = String(Math.floor((diffSeconds % 3600) / 60)).padStart(2, "0");
+      const s = String(diffSeconds % 60).padStart(2, "0");
       return h + ":" + m + ":" + s;
+    }
+
+    function getTimerAlertClass(state, diffSeconds) {
+      if ((state !== "Hospital" && state !== "Jail") || diffSeconds <= 0) return "";
+      if (diffSeconds <= 120) return "timer-red-fast";
+      if (diffSeconds <= 300) return "timer-yellow-slow";
+      if (diffSeconds <= 600) return "timer-yellow-solid";
+      return "";
+    }
+
+    function isAttackReady(state, diffSeconds) {
+      if (state === "Okay") return true;
+      if ((state === "Hospital" || state === "Jail") && diffSeconds <= 20) return true;
+      return false;
     }
 
     function renderRoster(factionData, tbodyId, isEnemy) {
@@ -180,37 +215,10 @@
         return;
       }
 
+      const now = Math.floor(Date.now() / 1000);
       const members = Object.entries(factionData.members).map(([id, m]) => ({ id, ...m }));
       members.sort((a, b) => (a.status.until || 9999999999) - (b.status.until || 9999999999));
 
       tbody.innerHTML = members.map(m => {
-        const atkCol = isEnemy ? '<td><a class="atk-btn" href="https://torn.com' + m.id + '" target="_blank">Attack</a></td>' : '';
-        return '<tr>' +
-          '<td><a class="player-link" href="https://torn.com' + m.id + '" target="_blank">' + m.name + '</a></td>' +
-          '<td>' + m.level + '</td>' +
-          '<td class="' + m.status.state + '">' + m.status.state + '</td>' +
-          '<td class="timer" data-until="' + (m.status.until || 0) + '">' + formatCountdown(m.status.until) + '</td>' +
-          atkCol +
-        '</tr>';
-      }).join("");
-    }
-
-    function renderTables() {
-      renderRoster(cachedData.ally, "allyBody", false);
-      renderRoster(cachedData.enemy, "enemyBody", true);
-    }
-
-    setInterval(() => {
-      document.querySelectorAll(".timer").forEach(el => {
-        const until = Number(el.dataset.until);
-        if (until > 0) el.textContent = formatCountdown(until);
-      });
-    }, 1000);
-
-    setInterval(fetchWarData, 20000);
-
-    updateActiveTab();
-    if (keyInput.value) fetchWarData();
-  </script>
-</body>
-</html>
+        const until = m.status.until || 0;
+        const diff = until > 0 ? until - now : 0;
