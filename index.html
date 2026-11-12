@@ -17,7 +17,7 @@
     input { padding: 9px 12px; border-radius: 6px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 220px; }
     .meta { font-size: 0.85rem; color: #999; margin-bottom: 16px; }
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    @media (max-width: 800px) { .board { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #1a1a1a; border-radius: 8px; padding: 16px; border: 1px solid #2c2c2c; }
     h2 { margin-top: 0; font-size: 1.15rem; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; }
     table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -32,6 +32,8 @@
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; display: inline-block; transition: 0.15s; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
+    a.ally-atk-btn { background: #4a3b12; color: #ffe082; border: 1px solid #7c631e; }
+    a.ally-atk-btn:hover { background: #7c631e; color: #fff; }
 
     @keyframes flashYellow {
       0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
@@ -45,11 +47,16 @@
       0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 8px rgba(76, 175, 80, 0.8); }
       50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; }
     }
+    @keyframes flashAllyHospReady {
+      0%, 100% { background-color: #ef6c00; color: #ffffff; box-shadow: 0 0 8px rgba(255, 152, 0, 0.8); border-color: #ffb74d; }
+      50% { background-color: #7c3800; color: #ffe0b2; box-shadow: none; border-color: #7c631e; }
+    }
 
     .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
     .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: bold; }
     .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
     .atk-ready { animation: flashAttackReady 1.5s infinite; }
+    .ally-atk-ready { animation: flashAllyHospReady 1.5s infinite; }
   </style>
 </head>
 <body>
@@ -65,9 +72,9 @@
 
   <div class="board">
     <div class="panel">
-      <h2 id="allyTitle">Razers [40449]</h2>
+      <h2 id="allyTitle">Razers</h2>
       <table>
-        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th></tr></thead>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="allyBody"></tbody>
       </table>
     </div>
@@ -121,31 +128,32 @@
       }
     }
 
-    async function fetchWithFallbacks(tornUrl) {
+    async function fetchWithFallback(tornUrl) {
       const strategies = [
-        () => fetch(tornUrl).then(async r => {
-          if (!r.ok) throw new Error("Direct HTTP " + r.status);
-          return r.json();
-        }),
-        () => fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(tornUrl)).then(async r => {
-          if (!r.ok) throw new Error("AllOrigins HTTP " + r.status);
-          const wrap = await r.json();
-          if (!wrap.contents) throw new Error("Empty proxy response");
-          return JSON.parse(wrap.contents);
-        }),
-        () => fetch("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl)).then(async r => {
-          if (!r.ok) throw new Error("CodeTabs HTTP " + r.status);
-          return r.json();
-        })
+        async () => {
+          const r = await fetch(tornUrl);
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return await r.json();
+        },
+        async () => {
+          const r = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl));
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return await r.json();
+        },
+        async () => {
+          const r = await fetch("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl));
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return await r.json();
+        }
       ];
 
-      let lastErr = new Error("All connection methods failed");
-      for (const attempt of strategies) {
+      let lastErr = new Error("Connection failed");
+      for (const fn of strategies) {
         try {
-          const data = await attempt();
+          const data = await fn();
           if (data && typeof data === "object") return data;
-        } catch (err) {
-          lastErr = err;
+        } catch (e) {
+          lastErr = e;
         }
       }
       throw lastErr;
@@ -153,7 +161,7 @@
 
     async function getFaction(id, key) {
       const tornUrl = "https://api.torn.com/faction/" + id + "?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
-      const data = await fetchWithFallbacks(tornUrl);
+      const data = await fetchWithFallback(tornUrl);
       if (data.error) throw new Error(data.error.error);
       return data;
     }
@@ -235,9 +243,8 @@
 
     function renderRoster(factionData, tbodyId, isEnemy) {
       const tbody = document.getElementById(tbodyId);
-      const cols = isEnemy ? 5 : 4;
       if (!factionData || !factionData.members) {
-        tbody.innerHTML = '<tr><td colspan="' + cols + '" style="color:#777;">No active opponent or data found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
         return;
       }
 
@@ -250,18 +257,17 @@
         const diff = until > 0 ? until - now : 0;
         const timerText = until > 0 ? formatCountdown(diff) : "-";
         const alertClass = getTimerAlertClass(m.status.state, diff);
-        const readyClass = isEnemy && isAttackReady(m.status.state, diff) ? " atk-ready" : "";
-
-        const atkCol = isEnemy
-          ? '<td><a class="atk-btn' + readyClass + '" data-state="' + m.status.state + '" data-until="' + until + '" href="https://www.torn.com/loader.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>'
-          : '';
+        const ready = isAttackReady(m.status.state, diff);
+        const baseBtnClass = isEnemy ? "atk-btn" : "atk-btn ally-atk-btn";
+        const readyClass = ready ? (isEnemy ? " atk-ready" : " ally-atk-ready") : "";
+        const attackUrl = "https://www.torn.com/page.php?sid=attack&user2ID=" + m.id;
 
         return '<tr>' +
-          '<td><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a></td>' +
+          '<td><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank" rel="noopener noreferrer">' + m.name + '</a></td>' +
           '<td>' + m.level + '</td>' +
           '<td class="' + m.status.state + '">' + m.status.state + '</td>' +
           '<td><span class="timer ' + alertClass + '" data-state="' + m.status.state + '" data-until="' + until + '">' + timerText + '</span></td>' +
-          atkCol +
+          '<td><a class="' + baseBtnClass + readyClass + '" data-enemy="' + (isEnemy ? "1" : "0") + '" data-state="' + m.status.state + '" data-until="' + until + '" href="' + attackUrl + '" target="_blank" rel="noopener noreferrer">Attack</a></td>' +
         '</tr>';
       }).join("");
     }
@@ -287,11 +293,13 @@
       document.querySelectorAll(".atk-btn").forEach(btn => {
         const until = Number(btn.dataset.until);
         const state = btn.dataset.state;
+        const isEnemy = btn.dataset.enemy === "1";
         const diff = until > 0 ? until - now : 0;
+        const readyClass = isEnemy ? "atk-ready" : "ally-atk-ready";
         if (isAttackReady(state, diff)) {
-          btn.classList.add("atk-ready");
+          btn.classList.add(readyClass);
         } else {
-          btn.classList.remove("atk-ready");
+          btn.classList.remove(readyClass);
         }
       });
     }, 1000);
