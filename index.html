@@ -17,23 +17,21 @@
     input { padding: 9px 12px; border-radius: 6px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 220px; }
     .meta { font-size: 0.85rem; color: #999; margin-bottom: 16px; }
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    @media (max-width: 900px) { .board { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #1a1a1a; border-radius: 8px; padding: 16px; border: 1px solid #2c2c2c; }
     h2 { margin-top: 0; font-size: 1.15rem; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
     th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #262626; }
     th { color: #888; font-weight: 600; }
-    .Okay { color: #66bb6a; }
+    .Okay { color: #66bb6a; font-weight: 600; }
     .Hospital { color: #ef5350; font-weight: bold; }
     .Jail { color: #ffa726; font-weight: bold; }
-    .Traveling, .Abroad { color: #42a5f5; }
-    .timer { font-family: monospace; font-size: 0.95rem; padding: 2px 6px; border-radius: 4px; }
+    .Traveling, .Abroad { color: #42a5f5; font-weight: 600; }
+    .timer { font-family: monospace; font-size: 0.92rem; padding: 2px 6px; border-radius: 4px; display: inline-block; }
     a.player-link { color: #fff; text-decoration: none; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; display: inline-block; transition: 0.15s; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
-    a.ally-atk-btn { background: #4a3b12; color: #ffe082; border: 1px solid #7c631e; }
-    a.ally-atk-btn:hover { background: #7c631e; color: #fff; }
 
     @keyframes flashYellow {
       0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
@@ -43,20 +41,20 @@
       0%, 100% { background-color: rgba(229, 57, 53, 0.45); color: #ffffff; }
       50% { background-color: transparent; color: #ff5252; }
     }
-    @keyframes flashAttackReady {
+    @keyframes flashEnemyReady {
       0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 8px rgba(76, 175, 80, 0.8); }
       50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; }
     }
-    @keyframes flashAllyHospReady {
-      0%, 100% { background-color: #ef6c00; color: #ffffff; box-shadow: 0 0 8px rgba(255, 152, 0, 0.8); border-color: #ffb74d; }
-      50% { background-color: #7c3800; color: #ffe0b2; box-shadow: none; border-color: #7c631e; }
+    @keyframes flashAllyReady {
+      0%, 100% { background-color: #e65100; color: #ffffff; box-shadow: 0 0 8px rgba(255, 152, 0, 0.8); }
+      50% { background-color: #8d3200; color: #ffcc80; box-shadow: none; }
     }
 
     .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
     .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: bold; }
     .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
-    .atk-ready { animation: flashAttackReady 1.5s infinite; }
-    .ally-atk-ready { animation: flashAllyHospReady 1.5s infinite; }
+    .atk-enemy-ready { animation: flashEnemyReady 1.5s infinite; }
+    .atk-ally-ready { animation: flashAllyReady 1.5s infinite; }
   </style>
 </head>
 <body>
@@ -95,6 +93,83 @@
       { id: 40385, name: "RazerResistance" }
     ];
 
+    const CITY_CODES = {
+      "torn": "TC",
+      "torn city": "TC",
+      "mexico": "MEX",
+      "cayman islands": "CAY",
+      "cayman": "CAY",
+      "canada": "CAN",
+      "hawaii": "HAW",
+      "united kingdom": "UK",
+      "uk": "UK",
+      "british": "UK",
+      "argentina": "ARG",
+      "switzerland": "SWI",
+      "japan": "JAP",
+      "china": "CHI",
+      "uae": "UAE",
+      "united arab emirates": "UAE",
+      "south africa": "SA"
+    };
+
+    function toCityCode(rawName) {
+      if (!rawName) return "TC";
+      const clean = rawName.toLowerCase().replace(/^the\s+/, "").trim();
+      return CITY_CODES[clean] || rawName.toUpperCase().slice(0, 3);
+    }
+
+    function formatStatusDisplay(statusObj) {
+      if (!statusObj) return "Unknown";
+      const state = statusObj.state || "";
+      const desc = (statusObj.description || "").replace(/<[^>]*>/g, "").trim();
+
+      if (state === "Hospital") {
+        // Examples: "In hospital for 24 mins", "In a British hospital for 1 hr", "In a Mexican hospital for 40 mins"
+        const hospMatch = desc.match(/In (?:a |an )?([A-Za-z\s]+?) hospital/i);
+        if (hospMatch && hospMatch[1]) {
+          const adj = hospMatch[1].trim().toLowerCase();
+          if (adj === "british") return "Hosp (UK)";
+          if (adj === "mexican") return "Hosp (MEX)";
+          if (adj === "caymanian") return "Hosp (CAY)";
+          if (adj === "canadian") return "Hosp (CAN)";
+          if (adj === "hawaiian") return "Hosp (HAW)";
+          if (adj === "argentinian" || adj === "argentine") return "Hosp (ARG)";
+          if (adj === "swiss") return "Hosp (SWI)";
+          if (adj === "japanese") return "Hosp (JAP)";
+          if (adj === "chinese") return "Hosp (CHI)";
+          if (adj === "emirati") return "Hosp (UAE)";
+          if (adj === "south african") return "Hosp (SA)";
+          return "Hosp (" + adj.toUpperCase().slice(0, 3) + ")";
+        }
+        return "Hosp (TC)";
+      }
+
+      if (state === "Traveling") {
+        // Examples: "Traveling to Japan", "Returning to Torn from Mexico"
+        const toMatch = desc.match(/Traveling to (.+)/i);
+        if (toMatch && toMatch[1]) {
+          return "TC > " + toCityCode(toMatch[1]);
+        }
+        const retMatch = desc.match(/Returning to Torn from (.+)/i);
+        if (retMatch && retMatch[1]) {
+          return toCityCode(retMatch[1]) + " > TC";
+        }
+        return desc || "Traveling";
+      }
+
+      if (state === "Abroad") {
+        // Examples: "In Japan", "In United Kingdom", "In Cayman Islands"
+        const inMatch = desc.match(/^In (.+)/i);
+        if (inMatch && inMatch[1]) {
+          return toCityCode(inMatch[1]);
+        }
+        return desc || "Abroad";
+      }
+
+      return state;
+    }
+
     let selectedFactionId = 40449;
     let cachedData = { ally: null, enemy: null };
 
@@ -129,41 +204,30 @@
     }
 
     async function fetchWithFallback(tornUrl) {
-      const strategies = [
-        async () => {
-          const r = await fetch(tornUrl);
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return await r.json();
-        },
-        async () => {
-          const r = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl));
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return await r.json();
-        },
-        async () => {
-          const r = await fetch("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl));
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return await r.json();
-        }
+      const endpoints = [
+        tornUrl,
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl),
+        "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl)
       ];
 
-      let lastErr = new Error("Connection failed");
-      for (const fn of strategies) {
+      let lastErr = null;
+      for (const endpoint of endpoints) {
         try {
-          const data = await fn();
-          if (data && typeof data === "object") return data;
-        } catch (e) {
-          lastErr = e;
+          const res = await fetch(endpoint);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          if (data && data.error) throw new Error(data.error.error);
+          if (data && (data.name || data.members)) return data;
+        } catch (err) {
+          lastErr = err;
         }
       }
-      throw lastErr;
+      throw lastErr || new Error("Unable to reach Torn API");
     }
 
     async function getFaction(id, key) {
       const tornUrl = "https://api.torn.com/faction/" + id + "?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
-      const data = await fetchWithFallback(tornUrl);
-      if (data.error) throw new Error(data.error.error);
-      return data;
+      return await fetchWithFallback(tornUrl);
     }
 
     function findOpponentId(factionData, ourId) {
@@ -257,17 +321,18 @@
         const diff = until > 0 ? until - now : 0;
         const timerText = until > 0 ? formatCountdown(diff) : "-";
         const alertClass = getTimerAlertClass(m.status.state, diff);
-        const ready = isAttackReady(m.status.state, diff);
-        const baseBtnClass = isEnemy ? "atk-btn" : "atk-btn ally-atk-btn";
-        const readyClass = ready ? (isEnemy ? " atk-ready" : " ally-atk-ready") : "";
-        const attackUrl = "https://www.torn.com/page.php?sid=attack&user2ID=" + m.id;
+        const readyClass = isAttackReady(m.status.state, diff)
+          ? (isEnemy ? " atk-enemy-ready" : " atk-ally-ready")
+          : "";
+        const sideType = isEnemy ? "enemy" : "ally";
+        const statusLabel = formatStatusDisplay(m.status);
 
         return '<tr>' +
-          '<td><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank" rel="noopener noreferrer">' + m.name + '</a></td>' +
+          '<td><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a></td>' +
           '<td>' + m.level + '</td>' +
-          '<td class="' + m.status.state + '">' + m.status.state + '</td>' +
+          '<td class="' + m.status.state + '">' + statusLabel + '</td>' +
           '<td><span class="timer ' + alertClass + '" data-state="' + m.status.state + '" data-until="' + until + '">' + timerText + '</span></td>' +
-          '<td><a class="' + baseBtnClass + readyClass + '" data-enemy="' + (isEnemy ? "1" : "0") + '" data-state="' + m.status.state + '" data-until="' + until + '" href="' + attackUrl + '" target="_blank" rel="noopener noreferrer">Attack</a></td>' +
+          '<td><a class="atk-btn' + readyClass + '" data-side="' + sideType + '" data-state="' + m.status.state + '" data-until="' + until + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>' +
         '</tr>';
       }).join("");
     }
@@ -293,9 +358,9 @@
       document.querySelectorAll(".atk-btn").forEach(btn => {
         const until = Number(btn.dataset.until);
         const state = btn.dataset.state;
-        const isEnemy = btn.dataset.enemy === "1";
+        const side = btn.dataset.side;
         const diff = until > 0 ? until - now : 0;
-        const readyClass = isEnemy ? "atk-ready" : "ally-atk-ready";
+        const readyClass = side === "enemy" ? "atk-enemy-ready" : "atk-ally-ready";
         if (isAttackReady(state, diff)) {
           btn.classList.add(readyClass);
         } else {
@@ -311,3 +376,4 @@
   </script>
 </body>
 </html>
+```
