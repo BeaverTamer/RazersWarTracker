@@ -6,65 +6,59 @@
   <title>Razers Alliance War Tracker</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 12px 14px; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 12px; }
     .top-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
     .key-group { display: flex; gap: 6px; }
-    button { padding: 7px 14px; border: 1px solid #333; border-radius: 5px; background: #1e1e1e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 0.88rem; transition: 0.15s; }
+    button { padding: 6px 14px; border: 1px solid #333; border-radius: 5px; background: #1e1e1e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 0.88rem; transition: 0.15s; }
     button:hover { background: #2c2c2c; color: #fff; }
     button.active { background: #2e7d32; color: #fff; border-color: #4caf50; }
     button.load-btn { background: #1565c0; color: #fff; border-color: #1976d2; }
     button.load-btn:hover { background: #1976d2; }
-    input { padding: 7px 10px; border-radius: 5px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 205px; font-size: 0.88rem; }
-    .meta { font-size: 0.8rem; color: #999; margin-bottom: 10px; }
+    input { padding: 6px 10px; border-radius: 5px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 205px; font-size: 0.88rem; }
+    .meta { font-size: 0.8rem; color: #888; margin-bottom: 10px; }
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 820px) { .board { grid-template-columns: 1fr; } }
-    .panel { background: #181818; border-radius: 6px; padding: 10px 10px 6px 10px; border: 1px solid #2b2b2b; overflow-x: auto; }
-    h2 { margin: 0 0 8px 0; font-size: 1.02rem; border-bottom: 1px solid #303030; padding-bottom: 7px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .chain-badge { font-size: 0.8rem; font-family: monospace; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #242424; color: #aaa; border: 1px solid #383838; white-space: nowrap; }
-    .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #388e3c; }
-    .chain-cooldown { background: #b3e5fc; color: #01579b; border-color: #4fc3f7; box-shadow: 0 0 6px rgba(129, 212, 250, 0.45); }
+    @media (max-width: 800px) { .board { grid-template-columns: 1fr; } }
+    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; }
+    h2 { margin: 0 0 6px 0; font-size: 1.05rem; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    table { width: 100%; border-collapse: collapse; border-spacing: 0; font-size: 0.84rem; }
+    thead tr { height: 24px; }
+    th { text-align: left; padding: 0 6px; border-bottom: 1px solid #2c2c2c; color: #888; font-weight: 600; white-space: nowrap; font-size: 0.8rem; line-height: 24px; }
+    tbody tr { height: 26px; }
+    tbody tr:nth-child(odd) { background-color: #181818; }
+    tbody tr:nth-child(even) { background-color: #202020; }
+    tbody tr:hover { background-color: #282828; }
+    td { text-align: left; padding: 0 6px; border: none; white-space: nowrap; height: 26px; line-height: 26px; vertical-align: middle; }
+    .Okay { color: #66bb6a; }
+    .OkayAbroad { color: #81c784; }
+    .Hospital { color: #ef5350; font-weight: bold; }
+    .Jail { color: #ffa726; font-weight: bold; }
+    .Traveling { color: #42a5f5; }
+    .Fallen { color: #9e9e9e; font-style: italic; }
+    .timer { font-family: monospace; font-size: 0.86rem; padding: 1px 5px; border-radius: 3px; display: inline-block; line-height: 1.2; }
+    a.player-link { color: #e8e8e8; text-decoration: none; }
+    a.player-link:hover { text-decoration: underline; color: #90caf9; }
+    a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 8px; border-radius: 3px; text-decoration: none; font-size: 0.78rem; font-weight: bold; display: inline-block; line-height: 1.25; transition: 0.15s; }
+    a.atk-btn:hover { background: #b71c1c; color: #fff; }
+    .fallen-dash { color: #555; font-size: 0.8rem; }
+
+    /* Chain Tracker Badges */
+    .chain-badge { font-size: 0.78rem; font-family: monospace; padding: 2px 7px; border-radius: 4px; background: #222; border: 1px solid #383838; color: #aaa; font-weight: 600; white-space: nowrap; }
+    .chain-active { background: rgba(46, 125, 50, 0.25); border-color: #4caf50; color: #81c784; }
+    .chain-cooldown { background: #b3e5fc; border-color: #4fc3f7; color: #01579b; box-shadow: 0 0 6px rgba(179, 229, 252, 0.35); }
 
     @keyframes flashChainYellow {
-      0%, 100% { background-color: rgba(253, 216, 53, 0.35); color: #fff59d; border-color: #fbc02d; }
-      50% { background-color: rgba(253, 216, 53, 0.08); color: #fdd835; border-color: #7f6000; }
+      0%, 100% { background-color: rgba(253, 216, 53, 0.32); border-color: #fdd835; color: #fff59d; }
+      50% { background-color: rgba(253, 216, 53, 0.08); border-color: #9e8615; color: #fdd835; }
     }
     @keyframes flashChainRed {
-      0%, 100% { background-color: rgba(211, 47, 47, 0.85); color: #ffffff; border-color: #ff5252; }
-      50% { background-color: rgba(183, 28, 28, 0.25); color: #ff8a80; border-color: #b71c1c; }
+      0%, 100% { background-color: rgba(211, 47, 47, 0.55); border-color: #ff5252; color: #ffffff; }
+      50% { background-color: rgba(211, 47, 47, 0.12); border-color: #8e1c1c; color: #ff8a80; }
     }
     .chain-warn-yellow { animation: flashChainYellow 1.6s infinite; }
     .chain-warn-red { animation: flashChainRed 0.65s infinite; }
 
-    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; table-layout: fixed; }
-    thead tr { height: 26px; border-bottom: 1px solid #2e2e2e; }
-    th { text-align: left; padding: 0 6px; color: #888; font-weight: 600; white-space: nowrap; line-height: 26px; }
-    th.col-lvl { width: 42px; }
-    th.col-status { width: 104px; }
-    th.col-timer { width: 78px; }
-    th.col-act { width: 66px; text-align: right; }
-
-    tbody tr { height: 26px; border: none; }
-    tbody tr:nth-child(odd) { background-color: #181818; }
-    tbody tr:nth-child(even) { background-color: #202020; }
-    tbody tr:hover { background-color: #2a2a2a; }
-
-    td { text-align: left; padding: 0 6px; height: 26px; line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-    td.col-act { text-align: right; }
-
-    .Okay { color: #66bb6a; }
-    .Hospital { color: #ef5350; font-weight: 700; }
-    .Jail { color: #ffa726; font-weight: 700; }
-    .Traveling, .Abroad { color: #42a5f5; font-weight: 600; }
-    .Federal { color: #ab47bc; font-weight: 600; }
-
-    .timer { font-family: monospace; font-size: 0.84rem; padding: 1px 4px; border-radius: 3px; display: inline-block; line-height: 18px; vertical-align: middle; }
-    a.player-link { color: #e8e8e8; text-decoration: none; }
-    a.player-link:hover { text-decoration: underline; color: #90caf9; }
-
-    a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 0 8px; height: 20px; line-height: 20px; border-radius: 3px; text-decoration: none; font-size: 0.76rem; font-weight: 700; display: inline-block; vertical-align: middle; transition: 0.15s; }
-    a.atk-btn:hover { background: #b71c1c; color: #fff; }
-
+    /* Member Timer Warning Animations */
     @keyframes flashYellow {
       0%, 100% { background-color: rgba(253, 216, 53, 0.25); color: #fff59d; }
       50% { background-color: transparent; color: #fdd835; }
@@ -74,13 +68,13 @@
       50% { background-color: transparent; color: #ff5252; }
     }
     @keyframes flashAttackReady {
-      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.75); }
+      0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.8); }
       50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; }
     }
 
-    .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: 700; }
-    .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: 700; }
-    .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: 700; }
+    .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
+    .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: bold; }
+    .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
     .atk-ready { animation: flashAttackReady 1.5s infinite; }
   </style>
 </head>
@@ -98,37 +92,21 @@
   <div class="board">
     <div class="panel">
       <h2>
-        <span id="allyTitle">Razers</span>
-        <span class="chain-badge" id="allyChain">Chain: -</span>
+        <span id="allyTitle">Razers [40449]</span>
+        <span class="chain-badge" id="allyChain" data-is-ally="1">Chain: -</span>
       </h2>
       <table>
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th class="col-lvl">Lvl</th>
-            <th class="col-status">Status</th>
-            <th class="col-timer">Timer</th>
-            <th class="col-act">Action</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="allyBody"></tbody>
       </table>
     </div>
     <div class="panel">
       <h2>
         <span id="enemyTitle">Warring Opponent</span>
-        <span class="chain-badge" id="enemyChain">Chain: -</span>
+        <span class="chain-badge" id="enemyChain" data-is-ally="0">Chain: -</span>
       </h2>
       <table>
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th class="col-lvl">Lvl</th>
-            <th class="col-status">Status</th>
-            <th class="col-timer">Timer</th>
-            <th class="col-act">Action</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
         <tbody id="enemyBody"></tbody>
       </table>
     </div>
@@ -143,18 +121,18 @@
     ];
 
     const COUNTRY_CODES = [
-      { keys: ["torn", "torn city"], code: "TC" },
-      { keys: ["mexico", "mexican"], code: "MEX" },
-      { keys: ["cayman", "cayman islands", "caymanian"], code: "CAY" },
-      { keys: ["canada", "canadian"], code: "CAN" },
-      { keys: ["hawaii", "hawaiian"], code: "HAW" },
-      { keys: ["united kingdom", "uk", "british", "london"], code: "UK" },
-      { keys: ["argentina", "argentinian"], code: "ARG" },
-      { keys: ["switzerland", "swiss"], code: "SWI" },
-      { keys: ["japan", "japanese"], code: "JAP" },
-      { keys: ["china", "chinese"], code: "CHI" },
-      { keys: ["uae", "united arab emirates", "emirati", "dubai"], code: "UAE" },
-      { keys: ["south africa", "south african"], code: "SA" }
+      { code: "MEX", terms: ["mexico", "mexican"] },
+      { code: "CAY", terms: ["cayman", "caymanian"] },
+      { code: "CAN", terms: ["canada", "canadian"] },
+      { code: "HAW", terms: ["hawaii", "hawaiian"] },
+      { code: "UK",  terms: ["united kingdom", "british", "uk"] },
+      { code: "ARG", terms: ["argentina", "argentinian"] },
+      { code: "SWI", terms: ["switzerland", "swiss"] },
+      { code: "JAP", terms: ["japan", "japanese"] },
+      { code: "CHI", terms: ["china", "chinese"] },
+      { code: "UAE", terms: ["uae", "emirati", "united arab emirates"] },
+      { code: "SA",  terms: ["south africa", "south african"] },
+      { code: "TC",  terms: ["torn city", "torn"] }
     ];
 
     let selectedFactionId = 40449;
@@ -190,47 +168,50 @@
       }
     }
 
-    async function fetchJsonWithFallback(tornUrl) {
-      const proxyUrls = [
-        tornUrl,
-        "https://api.allorigins.win/raw?url=" + encodeURIComponent(tornUrl),
-        "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(tornUrl)
+    async function fetchJsonWithFallback(targetUrl) {
+      const endpoints = [
+        targetUrl,
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
+        "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl)
       ];
 
       let lastErr = null;
-      for (const targetUrl of proxyUrls) {
+      for (const ep of endpoints) {
         try {
-          const res = await fetch(targetUrl);
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          if (data.error) throw new Error(data.error.error);
+          const res = await fetch(ep);
+          if (!res.ok) {
+            lastErr = new Error("HTTP " + res.status);
+            continue;
+          }
+          const text = await res.text();
+          const data = JSON.parse(text);
+          if (data && data.error) {
+            throw new Error(data.error.error || "Torn API error");
+          }
           return data;
         } catch (err) {
           lastErr = err;
+          if (err.message && (err.message.includes("key") || err.message.includes("Incorrect"))) {
+            throw err;
+          }
         }
       }
       throw lastErr || new Error("Unable to reach Torn API");
     }
 
     async function getFactionFull(id, key) {
-      const encodedKey = encodeURIComponent(key);
-      const v1Url = "https://api.torn.com/faction/" + id + "?selections=basic,chain&comment=RazersWarTracker&key=" + encodedKey;
-      const v2MembersUrl = "https://api.torn.com/v2/faction/" + id + "/members?comment=RazersWarTracker&key=" + encodedKey;
+      const basicUrl = "https://api.torn.com/faction/" + id + "?selections=basic,chain&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
+      const membersV2Url = "https://api.torn.com/v2/faction/" + id + "/members?striptags=true&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker";
 
-      const [v1Data, v2MembersData] = await Promise.all([
-        fetchJsonWithFallback(v1Url),
-        fetchJsonWithFallback(v2MembersUrl).catch(() => null)
+      const [basicData, v2Data] = await Promise.all([
+        fetchJsonWithFallback(basicUrl),
+        fetchJsonWithFallback(membersV2Url).catch(() => null)
       ]);
 
-      if (v2MembersData && Array.isArray(v2MembersData.members)) {
-        const mergedMembers = {};
-        v2MembersData.members.forEach(m => {
-          mergedMembers[m.id] = m;
-        });
-        v1Data.members = mergedMembers;
+      if (v2Data && Array.isArray(v2Data.members)) {
+        basicData.v2Members = v2Data.members;
       }
-
-      return v1Data;
+      return basicData;
     }
 
     function findOpponentId(factionData, ourId) {
@@ -256,155 +237,65 @@
       return null;
     }
 
-    function extractCountryCode(text) {
-      if (!text) return null;
-      const lower = text.toLowerCase();
-      for (const entry of COUNTRY_CODES) {
-        for (const k of entry.keys) {
-          const regex = new RegExp("\\b" + k + "\\b", "i");
-          if (regex.test(lower)) return entry.code;
-        }
-      }
-      return null;
-    }
-
-    function getParsedMemberInfo(m) {
-      const state = (m.status && m.status.state) ? m.status.state : "Okay";
-      const desc = (m.status && m.status.description) ? m.status.description : "";
-      const details = (m.status && m.status.details) ? m.status.details : "";
-      const fullText = (desc + " " + details).trim();
-      const lower = fullText.toLowerCase();
-
-      if (state === "Hospital") {
-        const code = extractCountryCode(fullText) || "TC";
-        return {
-          group: 1,
-          label: "Hosp (" + code + ")",
-          startLoc: code
-        };
-      }
-
-      if (state === "Jail") {
-        const code = extractCountryCode(fullText) || "TC";
-        return {
-          group: 1,
-          label: "Jail (" + code + ")",
-          startLoc: code
-        };
-      }
-
-      if (state === "Traveling") {
-        const code = extractCountryCode(fullText);
-        if (code && code !== "TC") {
-          if (lower.includes("returning to torn") || lower.includes("from ")) {
-            return {
-              group: 2,
-              label: code + " > TC",
-              startLoc: code
-            };
-          }
-          return {
-            group: 2,
-            label: "TC > " + code,
-            startLoc: "TC"
-          };
-        }
-        return {
-          group: 2,
-          label: "Traveling",
-          startLoc: "ZZZ"
-        };
-      }
-
-      if (state === "Abroad") {
-        const code = extractCountryCode(fullText) || "Abroad";
-        return {
-          group: 3,
-          label: "Okay (" + code + ")",
-          startLoc: code
-        };
-      }
-
-      if (state === "Okay") {
-        const code = extractCountryCode(fullText);
-        if (code && code !== "TC") {
-          return {
-            group: 3,
-            label: "Okay (" + code + ")",
-            startLoc: code
-          };
-        }
-        return {
-          group: 4,
-          label: "Okay (TC)",
-          startLoc: "TC"
-        };
-      }
-
-      return {
-        group: 5,
-        label: state,
-        startLoc: "ZZZ"
-      };
-    }
-
-    function formatShortTime(seconds) {
-      if (seconds <= 0) return "00:00";
-      const h = Math.floor(seconds / 3600);
-      const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
-      const s = String(seconds % 60).padStart(2, "0");
-      return h > 0 ? (String(h).padStart(2, "0") + ":" + m + ":" + s) : (m + ":" + s);
-    }
-
     function updateChainBadge(badgeId, chainObj, isAlly) {
-      const badge = document.getElementById(badgeId);
+      const el = document.getElementById(badgeId);
       if (!chainObj || (!chainObj.current && !chainObj.cooldown)) {
-        badge.textContent = "Chain: None";
-        badge.className = "chain-badge";
+        el.textContent = "Chain: None";
+        el.className = "chain-badge";
+        el.dataset.end = "0";
+        el.dataset.mode = "none";
+        el.dataset.current = "0";
+        el.dataset.max = "0";
         return;
       }
 
       const now = Math.floor(Date.now() / 1000);
+      el.dataset.current = chainObj.current || 0;
+      el.dataset.max = chainObj.max || 0;
 
       if (chainObj.cooldown && chainObj.cooldown > 0) {
-        const endTs = chainObj.end ? (chainObj.end + chainObj.cooldown) : (now + chainObj.cooldown);
-        const rem = Math.max(0, endTs - now);
-        if (rem > 0) {
-          badge.textContent = "Chain: " + chainObj.current + " (CD " + formatShortTime(rem) + ")";
-          badge.className = "chain-badge chain-cooldown";
-          return;
+        const endUnix = chainObj.end ? chainObj.end : (now + chainObj.cooldown);
+        el.dataset.mode = "cooldown";
+        el.dataset.end = endUnix;
+        renderChainTick(el, now);
+      } else if (chainObj.timeout && chainObj.timeout > 0) {
+        const endUnix = chainObj.end ? chainObj.end : (now + chainObj.timeout);
+        el.dataset.mode = "active";
+        el.dataset.end = endUnix;
+        renderChainTick(el, now);
+      } else {
+        el.textContent = "Chain: " + chainObj.current + "/" + chainObj.max;
+        el.className = "chain-badge chain-active";
+        el.dataset.mode = "static";
+        el.dataset.end = "0";
+      }
+    }
+
+    function renderChainTick(el, now) {
+      const mode = el.dataset.mode;
+      const endUnix = Number(el.dataset.end);
+      const isAlly = el.dataset.isAlly === "1";
+      if (!endUnix || mode === "none" || mode === "static") return;
+
+      const diff = Math.max(0, endUnix - now);
+      const m = String(Math.floor(diff / 60)).padStart(2, "0");
+      const s = String(diff % 60).padStart(2, "0");
+
+      if (mode === "cooldown") {
+        el.textContent = "Chain: " + el.dataset.current + " (CD " + m + ":" + s + ")";
+        el.className = "chain-badge chain-cooldown";
+      } else if (mode === "active") {
+        el.textContent = "Chain: " + el.dataset.current + "/" + el.dataset.max + " (" + m + ":" + s + ")";
+        if (isAlly && diff > 0 && diff < 60) {
+          el.className = "chain-badge chain-warn-red";
+        } else if (isAlly && diff > 0 && diff < 150) {
+          el.className = "chain-badge chain-warn-yellow";
+        } else if (!isAlly && diff > 0 && diff <= 60) {
+          el.className = "chain-badge chain-warn-red";
+        } else {
+          el.className = "chain-badge chain-active";
         }
       }
-
-      if (chainObj.current && chainObj.current > 0) {
-        let rem = 0;
-        if (chainObj.timeout && chainObj.timeout > 0) {
-          const fetchedAt = chainObj._fetchedAt || now;
-          rem = Math.max(0, chainObj.timeout - (now - fetchedAt));
-        }
-        const maxStr = chainObj.max ? ("/" + chainObj.max) : "";
-        badge.textContent = "Chain: " + chainObj.current + maxStr + (rem > 0 ? (" (" + formatShortTime(rem) + ")") : "");
-
-        let warnClass = "chain-badge chain-active";
-        if (rem > 0) {
-          if (isAlly) {
-            if (rem < 60) {
-              warnClass += " chain-warn-red";
-            } else if (rem < 150) {
-              warnClass += " chain-warn-yellow";
-            }
-          } else {
-            if (rem <= 60) {
-              warnClass += " chain-warn-red";
-            }
-          }
-        }
-        badge.className = warnClass;
-        return;
-      }
-
-      badge.textContent = "Chain: None";
-      badge.className = "chain-badge";
     }
 
     async function fetchWarData() {
@@ -413,24 +304,18 @@
         document.getElementById("statusBar").textContent = "Please paste a Torn Public API key first.";
         return;
       }
-      document.getElementById("statusBar").textContent = "Fetching live data for Faction " + selectedFactionId + "...";
+      document.getElementById("statusBar").textContent = "Fetching data for Faction " + selectedFactionId + "...";
 
       try {
-        const fetchTime = Math.floor(Date.now() / 1000);
         const allyData = await getFactionFull(selectedFactionId, key);
-        if (allyData.chain) allyData.chain._fetchedAt = fetchTime;
         cachedData.ally = allyData;
-
         document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
         updateChainBadge("allyChain", allyData.chain, true);
 
         const enemyId = findOpponentId(allyData, selectedFactionId);
         if (enemyId) {
-          const enemyFetchTime = Math.floor(Date.now() / 1000);
           const enemyData = await getFactionFull(enemyId, key);
-          if (enemyData.chain) enemyData.chain._fetchedAt = enemyFetchTime;
           cachedData.enemy = enemyData;
-
           document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
           updateChainBadge("enemyChain", enemyData.chain, false);
         } else {
@@ -444,6 +329,74 @@
       } catch (err) {
         document.getElementById("statusBar").textContent = "Torn API Error: " + err.message;
       }
+    }
+
+    function detectCountryCode(text) {
+      if (!text) return null;
+      const lower = text.toLowerCase();
+      for (const c of COUNTRY_CODES) {
+        for (const term of c.terms) {
+          const regex = new RegExp("\\b" + term + "\\b", "i");
+          if (regex.test(lower)) return c.code;
+        }
+      }
+      return null;
+    }
+
+    function parseMemberStatus(statusObj) {
+      const state = statusObj.state || "Okay";
+      const desc = statusObj.description || "";
+      const details = statusObj.details || "";
+      const combined = (desc + " " + details).trim();
+      const lowerDesc = desc.toLowerCase();
+
+      if (state === "Fallen") {
+        return { text: "Fallen", css: "Fallen", tier: 5, sortKey: "" };
+      }
+
+      if (state === "Hospital") {
+        const code = detectCountryCode(combined) || "TC";
+        return { text: "Hosp (" + code + ")", css: "Hospital", tier: 1, sortKey: code };
+      }
+
+      if (state === "Jail") {
+        const code = detectCountryCode(combined) || "TC";
+        return { text: "Jail (" + code + ")", css: "Jail", tier: 1, sortKey: code };
+      }
+
+      if (state === "Traveling") {
+        if (lowerDesc.includes("returning to torn")) {
+          const origin = detectCountryCode(desc.replace(/returning to torn/i, "")) || "ABROAD";
+          const route = origin + " > TC";
+          return { text: route, css: "Traveling", tier: 2, sortKey: origin };
+        }
+        if (lowerDesc.includes("traveling to")) {
+          const dest = detectCountryCode(desc.replace(/traveling to/i, "")) || "ABROAD";
+          const route = "TC > " + dest;
+          return { text: route, css: "Traveling", tier: 2, sortKey: "TC" };
+        }
+        const fallbackCode = detectCountryCode(combined);
+        if (fallbackCode && fallbackCode !== "TC") {
+          const route = "TC > " + fallbackCode;
+          return { text: route, css: "Traveling", tier: 2, sortKey: "TC" };
+        }
+        return { text: "Traveling", css: "Traveling", tier: 2, sortKey: "ZZZ" };
+      }
+
+      if (state === "Abroad") {
+        const code = detectCountryCode(combined) || "ABROAD";
+        return { text: "Okay (" + code + ")", css: "OkayAbroad", tier: 3, sortKey: code };
+      }
+
+      if (state === "Okay") {
+        const code = detectCountryCode(combined);
+        if (code && code !== "TC") {
+          return { text: "Okay (" + code + ")", css: "OkayAbroad", tier: 3, sortKey: code };
+        }
+        return { text: "Okay (TC)", css: "Okay", tier: 4, sortKey: "TC" };
+      }
+
+      return { text: state, css: state, tier: 4, sortKey: state };
     }
 
     function formatCountdown(diffSeconds) {
@@ -463,59 +416,77 @@
     }
 
     function isAttackReady(state, diffSeconds) {
-      if (state === "Okay" || state === "Abroad") return true;
+      if (state === "Fallen") return false;
+      if (state === "Okay") return true;
       if ((state === "Hospital" || state === "Jail") && diffSeconds <= 20) return true;
       return false;
     }
 
     function renderRoster(factionData, tbodyId) {
       const tbody = document.getElementById(tbodyId);
-      if (!factionData || !factionData.members) {
+      if (!factionData || (!factionData.members && !factionData.v2Members)) {
         tbody.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
         return;
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const members = Object.entries(factionData.members).map(([id, m]) => {
-        const parsed = getParsedMemberInfo(m);
-        return { id, ...m, parsed };
+      let members = [];
+
+      if (Array.isArray(factionData.v2Members) && factionData.v2Members.length > 0) {
+        members = factionData.v2Members.map(m => ({
+          id: m.id,
+          name: m.name,
+          level: m.level,
+          status: m.status || { state: "Okay", description: "", until: 0 }
+        }));
+      } else {
+        members = Object.entries(factionData.members).map(([id, m]) => ({ id, ...m }));
+      }
+
+      // Attach parsed status metadata for accurate multi-tier sorting
+      members.forEach(m => {
+        m.parsed = parseMemberStatus(m.status);
       });
 
+      // Tier 1: Hospital/Jail (soonest to longest)
+      // Tier 2: Traveling (alphabetically by starting location)
+      // Tier 3: Abroad / Okay overseas (alphabetically by country code)
+      // Tier 4: Okay (TC) (alphabetically by player name)
+      // Tier 5: Fallen
       members.sort((a, b) => {
-        if (a.parsed.group !== b.parsed.group) {
-          return a.parsed.group - b.parsed.group;
+        if (a.parsed.tier !== b.parsed.tier) {
+          return a.parsed.tier - b.parsed.tier;
         }
-        if (a.parsed.group === 1) {
-          return (a.status.until || 9999999999) - (b.status.until || 9999999999);
+        if (a.parsed.tier === 1) {
+          const untilA = a.status.until || 9999999999;
+          const untilB = b.status.until || 9999999999;
+          if (untilA !== untilB) return untilA - untilB;
         }
-        if (a.parsed.group === 2) {
-          const locCmp = a.parsed.startLoc.localeCompare(b.parsed.startLoc);
-          if (locCmp !== 0) return locCmp;
-          return a.parsed.label.localeCompare(b.parsed.label);
-        }
-        if (a.parsed.group === 3) {
-          const locCmp = a.parsed.startLoc.localeCompare(b.parsed.startLoc);
-          if (locCmp !== 0) return locCmp;
+        if (a.parsed.tier === 2 || a.parsed.tier === 3) {
+          const cmp = a.parsed.sortKey.localeCompare(b.parsed.sortKey);
+          if (cmp !== 0) return cmp;
         }
         return (a.name || "").localeCompare(b.name || "");
       });
 
       tbody.innerHTML = members.map(m => {
-        const state = (m.status && m.status.state) ? m.status.state : "Okay";
-        const until = (m.status && m.status.until) ? m.status.until : 0;
+        const until = m.status.until || 0;
         const diff = until > 0 ? until - now : 0;
-        const timerText = (state === "Hospital" || state === "Jail") && until > 0 ? formatCountdown(diff) : "-";
-        const alertClass = getTimerAlertClass(state, diff);
-        const readyClass = isAttackReady(state, diff) ? " atk-ready" : "";
-        const atkUrl = "https://www.torn.com/page.php?sid=attack&user2ID=" + m.id;
-        const statusClass = (state === "Abroad") ? "Okay" : state;
+        const timerText = until > 0 ? formatCountdown(diff) : "-";
+        const alertClass = getTimerAlertClass(m.status.state, diff);
+        const readyClass = isAttackReady(m.status.state, diff) ? " atk-ready" : "";
+        const isFallen = m.status.state === "Fallen";
+
+        const actionCell = isFallen
+          ? '<span class="fallen-dash">-</span>'
+          : '<a class="atk-btn' + readyClass + '" data-state="' + m.status.state + '" data-until="' + until + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a>';
 
         return '<tr>' +
           '<td><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a></td>' +
-          '<td class="col-lvl">' + m.level + '</td>' +
-          '<td class="col-status ' + statusClass + '">' + m.parsed.label + '</td>' +
-          '<td class="col-timer"><span class="timer ' + alertClass + '" data-state="' + state + '" data-until="' + until + '">' + timerText + '</span></td>' +
-          '<td class="col-act"><a class="atk-btn' + readyClass + '" data-state="' + state + '" data-until="' + until + '" href="' + atkUrl + '" target="_blank">Attack</a></td>' +
+          '<td>' + m.level + '</td>' +
+          '<td class="' + m.parsed.css + '">' + m.parsed.text + '</td>' +
+          '<td><span class="timer ' + alertClass + '" data-state="' + m.status.state + '" data-until="' + until + '">' + timerText + '</span></td>' +
+          '<td>' + actionCell + '</td>' +
         '</tr>';
       }).join("");
     }
@@ -528,17 +499,13 @@
     setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
 
-      if (cachedData.ally && cachedData.ally.chain) {
-        updateChainBadge("allyChain", cachedData.ally.chain, true);
-      }
-      if (cachedData.enemy && cachedData.enemy.chain) {
-        updateChainBadge("enemyChain", cachedData.enemy.chain, false);
-      }
+      renderChainTick(document.getElementById("allyChain"), now);
+      renderChainTick(document.getElementById("enemyChain"), now);
 
       document.querySelectorAll(".timer").forEach(el => {
         const until = Number(el.dataset.until);
         const state = el.dataset.state;
-        if ((state === "Hospital" || state === "Jail") && until > 0) {
+        if (until > 0) {
           const diff = until - now;
           el.textContent = formatCountdown(diff);
           el.className = "timer " + getTimerAlertClass(state, diff);
@@ -564,3 +531,4 @@
   </script>
 </body>
 </html>
+```
