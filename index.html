@@ -100,7 +100,8 @@
     }
 
     async function getFaction(id, key) {
-      const url = "https://torn.com" + id + "?selections=basic&key=" + encodeURIComponent(key);
+      const tornUrl = "https://torn.com" + id + "?selections=basic&key=" + encodeURIComponent(key);
+      const url = "https://corsproxy.io?" + encodeURIComponent(tornUrl);
       const res = await fetch(url);
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
