@@ -69,8 +69,8 @@
     .Jail { color: #ffa726; font-weight: 600; }
     .Traveling { color: #42a5f5; }
     .Fallen { color: #757575; font-style: italic; }
-    .flight-elapsed { color: #90caf9; font-family: monospace; font-size: 0.78rem; }
     .timer { font-family: monospace; font-size: 0.82rem; padding: 1px 4px; border-radius: 3px; }
+    .timer-flight { color: #90caf9; }
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 7px; border-radius: 4px; text-decoration: none; font-size: 0.75rem; font-weight: 700; display: inline-block; line-height: 18px; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
     @media (max-width: 480px) {
@@ -199,8 +199,6 @@
       currentRefreshInterval = Number(intervalSelect.value);
       localStorage.setItem("razers_refresh_ms", currentRefreshInterval);
       setupApiInterval();
-      // Note: intentionally does NOT re-trigger fetchAllData() immediately 
-      // or clear flightStarts, so current timers/rosters remain visible without interruption.
     }
 
     function setupApiInterval() {
@@ -315,7 +313,7 @@
       if (h > 0) {
         return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
       }
-      return m + ":" + String(s).padStart(2, "0");
+      return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
     }
 
     function saveApiKey(val) {
@@ -808,13 +806,6 @@
           };
         }
 
-        let displayLabel = parsed.label;
-        if (rawState === "Traveling" && flightStarts[id]) {
-          const elapsed = Math.max(0, now - flightStarts[id].start);
-          const prefix = flightStarts[id].exact ? "+" : "~+";
-          displayLabel = parsed.label + ' <span class="flight-elapsed">(' + prefix + formatElapsedFlight(elapsed) + ')</span>';
-        }
-
         return {
           id,
           name: m.name,
@@ -823,7 +814,7 @@
           lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
           rawState,
           until,
-          label: displayLabel,
+          label: parsed.label,
           tier: parsed.tier,
           city: parsed.city,
           sortKey: parsed.sortKey
@@ -843,8 +834,19 @@
 
       tbody.innerHTML = list.map(m => {
         const diff = m.until > 0 ? m.until - now : 0;
-        const timerText = m.until > 0 ? formatHHMMSS(diff) : "-";
-        const alertClass = getTimerAlertClass(m.rawState, diff);
+        let timerText = "-";
+        let alertClass = "";
+
+        if (m.rawState === "Traveling" && flightStarts[m.id]) {
+          const elapsed = Math.max(0, now - flightStarts[m.id].start);
+          const prefix = flightStarts[m.id].exact ? "+" : "~+";
+          timerText = prefix + formatElapsedFlight(elapsed);
+          alertClass = "timer-flight";
+        } else if (m.until > 0) {
+          timerText = formatHHMMSS(diff);
+          alertClass = getTimerAlertClass(m.rawState, diff);
+        }
+
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
         const landedClass = landedTimestamps[m.id] ? " row-landed" : "";
 
@@ -874,9 +876,7 @@
       }
     }, 1000);
 
-    // Initialize dynamic refresh interval and tick loop
     setupApiInterval();
-
     applyCollapseStates();
     updateActiveTab();
     if (keyInput.value) fetchAllData();
