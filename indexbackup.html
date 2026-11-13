@@ -37,7 +37,13 @@
     @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; }
     .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
+    .panel-header-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
     .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+    .collapse-btn:hover { background: #333; color: #fff; }
+    .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
+    .panel.collapsed { padding-bottom: 6px; border-style: dashed; }
+
     .chain-badge { font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; }
     .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #4caf50; }
     .chain-cooldown { background: #b3e5fc; color: #01579b; border-color: #4fc3f7; box-shadow: 0 0 6px rgba(179, 229, 252, 0.4); }
@@ -116,25 +122,35 @@
   </div>
 
   <div class="board" id="swipeBoard">
-    <div class="panel">
+    <div class="panel" id="allyPanel">
       <div class="panel-header">
-        <h2 id="allyTitle">Razers</h2>
+        <div class="panel-header-left">
+          <button class="collapse-btn" id="allyCollapseBtn" onclick="togglePanel('ally')">[-]</button>
+          <h2 id="allyTitle">Razers</h2>
+        </div>
         <span class="chain-badge" id="allyChain">Chain: --</span>
       </div>
-      <table>
-        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
-        <tbody id="allyBody"></tbody>
-      </table>
+      <div class="panel-body">
+        <table>
+          <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
+          <tbody id="allyBody"></tbody>
+        </table>
+      </div>
     </div>
-    <div class="panel">
+    <div class="panel" id="enemyPanel">
       <div class="panel-header">
-        <h2 id="enemyTitle">Warring Opponent</h2>
+        <div class="panel-header-left">
+          <button class="collapse-btn" id="enemyCollapseBtn" onclick="togglePanel('enemy')">[-]</button>
+          <h2 id="enemyTitle">Warring Opponent</h2>
+        </div>
         <span class="chain-badge" id="enemyChain">Chain: --</span>
       </div>
-      <table>
-        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
-        <tbody id="enemyBody"></tbody>
-      </table>
+      <div class="panel-body">
+        <table>
+          <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
+          <tbody id="enemyBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -166,10 +182,44 @@
     let myCityCode = "TC";
     let cachedData = { ally: null, enemy: null };
 
+    // Persistent Collapse States
+    let collapsedState = {
+      ally: localStorage.getItem("razers_ally_collapsed") === "true",
+      enemy: localStorage.getItem("razers_enemy_collapsed") === "true"
+    };
+
+    function applyCollapseStates() {
+      const allyPanel = document.getElementById("allyPanel");
+      const allyBtn = document.getElementById("allyCollapseBtn");
+      if (collapsedState.ally) {
+        allyPanel.classList.add("collapsed");
+        allyBtn.textContent = "[+]";
+      } else {
+        allyPanel.classList.remove("collapsed");
+        allyBtn.textContent = "[-]";
+      }
+
+      const enemyPanel = document.getElementById("enemyPanel");
+      const enemyBtn = document.getElementById("enemyCollapseBtn");
+      if (collapsedState.enemy) {
+        enemyPanel.classList.add("collapsed");
+        enemyBtn.textContent = "[+]";
+      } else {
+        enemyPanel.classList.remove("collapsed");
+        enemyBtn.textContent = "[-]";
+      }
+    }
+
+    function togglePanel(type) {
+      collapsedState[type] = !collapsedState[type];
+      localStorage.setItem("razers_" + type + "_collapsed", collapsedState[type]);
+      applyCollapseStates();
+    }
+
     // Persistent Flight Tracking & Landing Flash State
     let flightStarts = {};
     let lastKnownStates = {};
-    let landedTimestamps = {}; // Tracks player ID -> timestamp when they landed
+    let landedTimestamps = {};
 
     try {
       const savedFlights = JSON.parse(localStorage.getItem("razers_flight_starts") || "{}");
@@ -212,10 +262,8 @@
             changed = true;
           }
         } else {
-          // Check if they just landed (transitioned from Traveling to non-Traveling)
           if (prevState === "Traveling" && flightStarts[id]) {
             landedTimestamps[id] = now;
-            // Clear landing highlight after 5 seconds
             setTimeout(() => {
               delete landedTimestamps[id];
               renderTables();
@@ -319,7 +367,6 @@
       }
     }
 
-    // Mobile left/right swipe support
     let touchStartX = 0;
     let touchStartY = 0;
     const swipeBoard = document.getElementById("swipeBoard");
@@ -802,6 +849,7 @@
 
     setInterval(fetchAllData, 15000);
 
+    applyCollapseStates();
     updateActiveTab();
     if (keyInput.value) fetchAllData();
   </script>
