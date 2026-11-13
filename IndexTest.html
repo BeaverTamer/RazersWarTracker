@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Razers Alliance War Tracker</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
+    .top-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+    .key-group { display: flex; gap: 5px; align-items: center; }
+    button { padding: 7px 11px; border: 1px solid #333; border-radius: 5px; background: #1e1e1e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 0.83rem; }
+    button:hover { background: #2c2c2c; color: #fff; }
+    button.active { background: #2e7d32; color: #fff; border-color: #4caf50; }
+    button.load-btn { background: #1565c0; color: #fff; border-color: #1976d2; }
+    button.toggle-btn { background: #262626; color: #bbb; padding: 7px 9px; }
+    input { padding: 7px 10px; border-radius: 5px; border: 1px solid #333; background: #1e1e1e; color: #fff; width: 155px; font-size: 0.83rem; }
+    .sub-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #999; margin-bottom: 8px; gap: 8px; }
+    .loc-badge { color: #90caf9; font-weight: 600; white-space: nowrap; }
+
+    /* War Score Banner */
+    .war-banner { display: none; background: #1a1a1a; border: 1px solid #303030; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; }
+    .war-scores-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; flex-wrap: wrap; }
+    .war-team-ally { color: #81c784; }
+    .war-team-enemy { color: #e57373; }
+    .war-center-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+    .lead-badge { padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #2c2c2c; color: #ddd; }
+    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border: 1px solid #4caf50; }
+    .lead-enemy { background: rgba(198, 40, 40, 0.3); color: #ef9a9a; border: 1px solid #e53935; }
+    .target-text { color: #bbb; font-family: monospace; font-size: 0.8rem; }
+    .war-bar-track { width: 100%; height: 7px; background: #2a2a2a; border-radius: 4px; overflow: hidden; display: flex; }
+    .war-bar-ally { background: #43a047; height: 100%; transition: width 0.4s ease; }
+    .war-bar-enemy { background: #e53935; height: 100%; transition: width 0.4s ease; }
+
+    .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; touch-action: pan-y; }
+    @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
+    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
+    .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chain-badge { font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; }
+    .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #4caf50; }
+    .chain-cooldown { background: #b3e5fc; color: #01579b; border-color: #4fc3f7; box-shadow: 0 0 6px rgba(179, 229, 252, 0.4); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { text-align: left; color: #888; font-weight: 600; padding: 4px 5px; border-bottom: 1px solid #2a2a2a; white-space: nowrap; }
+    tbody tr { height: 26px; }
+    tbody tr:nth-child(odd) { background-color: #181818; }
+    tbody tr:nth-child(even) { background-color: #202020; }
+    tbody tr:hover { background-color: #2a2a2a; }
+    td { padding: 0 5px; line-height: 26px; white-space: nowrap; }
+    .player-cell { display: flex; align-items: center; gap: 5px; max-width: 155px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .dot-Online { background: #4caf50; }
+    .dot-Idle { background: #ff9800; }
+    .dot-Offline { background: #555; }
+    a.player-link { color: #fff; text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
+    a.player-link:hover { text-decoration: underline; color: #90caf9; }
+    .last-act { color: #777; font-size: 0.72rem; flex-shrink: 0; }
+    .Okay { color: #66bb6a; }
+    .Hospital { color: #ef5350; font-weight: 600; }
+    .Jail { color: #ffa726; font-weight: 600; }
+    .Traveling { color: #42a5f5; }
+    .Fallen { color: #757575; font-style: italic; }
+    .flight-elapsed { color: #90caf9; font-family: monospace; font-size: 0.78rem; }
+    .timer { font-family: monospace; font-size: 0.82rem; padding: 1px 4px; border-radius: 3px; }
+    a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 7px; border-radius: 4px; text-decoration: none; font-size: 0.75rem; font-weight: 700; display: inline-block; line-height: 18px; }
+    a.atk-btn:hover { background: #b71c1c; color: #fff; }
+    @media (max-width: 480px) {
+      body { padding: 6px; }
+      table { font-size: 0.76rem; }
+      td, th { padding: 0 3px; }
+      .player-cell { max-width: 108px; }
+      .timer { font-size: 0.75rem; padding: 1px 2px; }
+      a.atk-btn { padding: 2px 5px; font-size: 0.72rem; }
+      input { width: 130px; }
+    }
+    @keyframes flashYellow { 0%, 100% { background-color: rgba(253, 216, 53, 0.28); color: #fff59d; } 50% { background-color: transparent; color: #fdd835; } }
+    @keyframes flashRed { 0%, 100% { background-color: rgba(229, 57, 53, 0.48); color: #ffffff; } 50% { background-color: transparent; color: #ff5252; } }
+    @keyframes flashReady { 0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.8); } 50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; } }
+    .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
+    .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: bold; }
+    .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
+    .atk-ready { animation: flashReady 1.5s infinite; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="tabs" id="factionTabs"></div>
+    <div class="key-group">
+      <input type="password" id="apiKey" autocomplete="on" placeholder="Public Torn API Key" />
+      <button class="toggle-btn" id="toggleKeyBtn" onclick="toggleKeyVisibility()">Show</button>
+      <button class="load-btn" onclick="manualLoad()">Load</button>
+    </div>
+  </div>
+  <div class="sub-bar">
+    <span id="statusBar">Enter a Public Torn API key and click Load.</span>
+    <span class="loc-badge" id="myLocBadge">Your Location: --</span>
+  </div>
+
+  <!-- Live War Score Banner -->
+  <div class="war-banner" id="warBanner">
+    <div class="war-scores-row">
+      <span class="war-team-ally" id="warAllyScore">Razers: 0</span>
+      <div class="war-center-info">
+        <span class="lead-badge" id="warLeadBadge">Tied</span>
+        <span class="target-text" id="warTargetText">Target: --</span>
+      </div>
+      <span class="war-team-enemy" id="warEnemyScore">0 :Opponent</span>
+    </div>
+    <div class="war-bar-track">
+      <div class="war-bar-ally" id="warBarAlly" style="width: 50%;"></div>
+      <div class="war-bar-enemy" id="warBarEnemy" style="width: 50%;"></div>
+    </div>
+  </div>
+
+  <div class="board" id="swipeBoard">
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="allyTitle">Razers</h2>
+        <span class="chain-badge" id="allyChain">Chain: --</span>
+      </div>
+      <table>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
+        <tbody id="allyBody"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="enemyTitle">Warring Opponent</h2>
+        <span class="chain-badge" id="enemyChain">Chain: --</span>
+      </div>
+      <table>
+        <thead><tr><th>Player</th><th>Lvl</th><th>Status</th><th>Timer</th><th>Action</th></tr></thead>
+        <tbody id="enemyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const OUR_FACTIONS = [
+      { id: 40449, name: "Razers" },
+      { id: 48277, name: "HellRazers" },
+      { id: 48628, name: "OccamsRazers" },
+      { id: 40385, name: "RazerResistance" }
+    ];
+
+    const CITY_CODES = [
+      { keys: ["torn"], code: "TC" },
+      { keys: ["mexico", "mexican"], code: "MEX" },
+      { keys: ["cayman"], code: "CAY" },
+      { keys: ["canada", "canadian"], code: "CAN" },
+      { keys: ["hawaii", "hawaiian"], code: "HAW" },
+      { keys: ["united kingdom", "uk", "british"], code: "UK" },
+      { keys: ["argentina", "argentinian"], code: "ARG" },
+      { keys: ["switzerland", "swiss"], code: "SWI" },
+      { keys: ["japan", "japanese"], code: "JAP" },
+      { keys: ["china", "chinese"], code: "CHI" },
+      { keys: ["uae", "emirates", "emirati"], code: "UAE" },
+      { keys: ["south africa", "south african"], code: "SA" }
+    ];
+
+    let selectedFactionId = Number(sessionStorage.getItem("razers_tab")) || 40449;
+    let homeDetected = Boolean(sessionStorage.getItem("razers_tab"));
+    let myCityCode = "TC";
+    let cachedData = { ally: null, enemy: null };
+
+    // Persistent Flight Tracking State (survives 15s API refreshes and page reloads)
+    let flightStarts = {};
+    let lastKnownStates = {};
+    try {
+      const savedFlights = JSON.parse(localStorage.getItem("razers_flight_starts") || "{}");
+      const nowSec = Math.floor(Date.now() / 1000);
+      // Keep any flight records under 7 hours old
+      for (const [uid, info] of Object.entries(savedFlights)) {
+        if (info && info.start && (nowSec - info.start) < 25200) {
+          flightStarts[uid] = info;
+        }
+      }
+    } catch (e) {
+      flightStarts = {};
+    }
+
+    function saveFlightStarts() {
+      try {
+        localStorage.setItem("razers_flight_starts", JSON.stringify(flightStarts));
+      } catch (e) {}
+    }
+
+    function updateFlightTrackers(factionData) {
+      if (!factionData || !factionData.members) return;
+      const now = Math.floor(Date.now() / 1000);
+      let changed = false;
+
+      for (const [id, m] of Object.entries(factionData.members)) {
+        const state = (m.status && m.status.state) ? m.status.state : "Okay";
+        const prevState = lastKnownStates[id];
+
+        if (state === "Traveling") {
+          const parsed = parseMemberStatus(m);
+          const route = parsed.label;
+
+          if (!flightStarts[id] || flightStarts[id].route !== route) {
+            // Exact takeoff if we previously saw them on the ground (Okay/Hospital/Jail/Abroad)
+            const wasOnGround = Boolean(prevState && prevState !== "Traveling");
+            flightStarts[id] = {
+              start: now,
+              route: route,
+              exact: wasOnGround
+            };
+            changed = true;
+          }
+        } else {
+          // Player is no longer flying; clear their flight timer
+          if (flightStarts[id]) {
+            delete flightStarts[id];
+            changed = true;
+          }
+        }
+
+        lastKnownStates[id] = state;
+      }
+
+      if (changed) saveFlightStarts();
+    }
+
+    function formatElapsedFlight(sec) {
+      if (sec < 0) sec = 0;
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if (h > 0) {
+        return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      }
+      return m + ":" + String(s).padStart(2, "0");
+    }
+
+    function saveApiKey(val) {
+      if (!val) return;
+      localStorage.setItem("torn_pub_key", val);
+      document.cookie = "torn_pub_key=" + encodeURIComponent(val) + "; max-age=31536000; path=/; SameSite=Lax";
+    }
+
+    function loadSavedApiKey() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get("key");
+      if (urlKey && urlKey.trim().length >= 16) {
+        saveApiKey(urlKey.trim());
+        return urlKey.trim();
+      }
+      const lsKey = localStorage.getItem("torn_pub_key");
+      if (lsKey) return lsKey;
+      const match = document.cookie.match(/(?:^|;\s*)torn_pub_key=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : "";
+    }
+
+    const keyInput = document.getElementById("apiKey");
+    keyInput.value = loadSavedApiKey();
+
+    function toggleKeyVisibility() {
+      const btn = document.getElementById("toggleKeyBtn");
+      if (keyInput.type === "password") {
+        keyInput.type = "text";
+        btn.textContent = "Hide";
+      } else {
+        keyInput.type = "password";
+        btn.textContent = "Show";
+      }
+    }
+
+    function manualLoad() {
+      const val = keyInput.value.trim();
+      saveApiKey(val);
+      homeDetected = false;
+      fetchAllData();
+    }
+
+    keyInput.addEventListener("input", () => {
+      const val = keyInput.value.trim();
+      saveApiKey(val);
+      if (val.length === 16) {
+        homeDetected = false;
+        fetchAllData();
+      }
+    });
+
+    const tabContainer = document.getElementById("factionTabs");
+    OUR_FACTIONS.forEach(fac => {
+      const btn = document.createElement("button");
+      btn.textContent = fac.name;
+      btn.dataset.id = fac.id;
+      btn.onclick = () => switchTab(fac.id);
+      tabContainer.appendChild(btn);
+    });
+
+    function switchTab(id) {
+      selectedFactionId = Number(id);
+      sessionStorage.setItem("razers_tab", String(selectedFactionId));
+      updateActiveTab();
+      fetchAllData();
+    }
+
+    function updateActiveTab() {
+      document.querySelectorAll("#factionTabs button").forEach(b => {
+        b.classList.toggle("active", Number(b.dataset.id) === selectedFactionId);
+      });
+      const current = OUR_FACTIONS.find(f => f.id === selectedFactionId);
+      if (current) {
+        document.getElementById("allyTitle").textContent = current.name + " [" + current.id + "]";
+      }
+    }
+
+    // Mobile left/right swipe support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const swipeBoard = document.getElementById("swipeBoard");
+    swipeBoard.addEventListener("touchstart", e => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    swipeBoard.addEventListener("touchend", e => {
+      const dx = e.changedTouches[0].screenX - touchStartX;
+      const dy = e.changedTouches[0].screenY - touchStartY;
+      if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        const idx = OUR_FACTIONS.findIndex(f => f.id === selectedFactionId);
+        const nextIdx = dx < 0 ? (idx + 1) % OUR_FACTIONS.length : (idx - 1 + OUR_FACTIONS.length) % OUR_FACTIONS.length;
+        switchTab(OUR_FACTIONS[nextIdx].id);
+      }
+    }, { passive: true });
+
+    async function fetchTornApi(endpointPath) {
+      const directUrl = "https://api.torn.com" + endpointPath;
+      const proxies = [
+        directUrl,
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(directUrl),
+        "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(directUrl)
+      ];
+      let lastErr = null;
+      for (const url of proxies) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.error);
+          return data;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error("Network error");
+    }
+
+    function detectCityCode(text) {
+      if (!text) return "TC";
+      const low = text.toLowerCase();
+      for (const entry of CITY_CODES) {
+        for (const k of entry.keys) {
+          if (low.includes(k)) return entry.code;
+        }
+      }
+      return "TC";
+    }
+
+    function parseMemberStatus(m) {
+      const st = m.status || {};
+      const state = st.state || "Okay";
+      const desc = st.description || "";
+      const details = st.details || "";
+      const combined = (desc + " " + details).trim();
+
+      if (state === "Fallen") return { label: "Fallen", tier: 5, city: "NONE", sortKey: "zzz" };
+
+      if (state === "Hospital" || state === "Jail") {
+        const city = detectCityCode(combined);
+        const prefix = state === "Hospital" ? "Hosp" : "Jail";
+        return { label: prefix + " (" + city + ")", tier: 1, city: city, sortKey: "" };
+      }
+
+      if (state === "Traveling") {
+        const low = combined.toLowerCase();
+        let route = "TC > ?";
+        if (low.includes("returning to torn from")) {
+          const fromCity = detectCityCode(low.split("from").pop());
+          route = fromCity + " > TC";
+        } else if (low.includes("traveling to")) {
+          const toCity = detectCityCode(low.split("to").pop());
+          route = "TC > " + toCity;
+        } else {
+          const otherCity = detectCityCode(low.replace("torn", ""));
+          route = low.includes("to torn") ? otherCity + " > TC" : "TC > " + otherCity;
+        }
+        return { label: route, tier: 2, city: "TRAVEL", sortKey: route };
+      }
+
+      if (state === "Abroad") {
+        const city = detectCityCode(combined);
+        return { label: "Okay (" + city + ")", tier: 3, city: city, sortKey: city };
+      }
+
+      const city = detectCityCode(combined);
+      if (city !== "TC") {
+        return { label: "Okay (" + city + ")", tier: 3, city: city, sortKey: city };
+      }
+      return { label: "Okay (TC)", tier: 4, city: "TC", sortKey: m.name.toLowerCase() };
+    }
+
+    function formatLastAction(relativeStr) {
+      if (!relativeStr) return "";
+      const m = relativeStr.match(/(\d+)\s*(second|minute|hour|day)/i);
+      if (!m) return "";
+      return m[1] + m[2][0].toLowerCase();
+    }
+
+    function extractActiveWar(factionData, ourId) {
+      const myId = Number(ourId);
+      if (factionData.ranked_wars) {
+        for (const war of Object.values(factionData.ranked_wars)) {
+          const fids = Object.keys(war.factions).map(Number);
+          const oppId = fids.find(id => id !== myId);
+          if (oppId) {
+            const myFac = war.factions[myId] || {};
+            const oppFac = war.factions[oppId] || {};
+            const target = (war.war && war.war.target) ? Number(war.war.target) : 0;
+            return {
+              type: "Ranked War",
+              oppId: oppId,
+              allyName: myFac.name || factionData.name || "Our Faction",
+              allyScore: Number(myFac.score || 0),
+              enemyName: oppFac.name || "Opponent",
+              enemyScore: Number(oppFac.score || 0),
+              target: target
+            };
+          }
+        }
+      }
+      if (factionData.territory_wars) {
+        for (const war of Object.values(factionData.territory_wars)) {
+          const isAssault = Number(war.assaulting_faction) === myId;
+          const oppId = isAssault ? Number(war.defending_faction) : Number(war.assaulting_faction);
+          if (oppId) {
+            return {
+              type: "Territory War",
+              oppId: oppId,
+              allyName: factionData.name || "Our Faction",
+              allyScore: Number(war.score || 0),
+              enemyName: "Opponent",
+              enemyScore: 0,
+              target: Number(war.required_score || 0)
+            };
+          }
+        }
+      }
+      if (factionData.raid_wars) {
+        for (const war of Object.values(factionData.raid_wars)) {
+          const isRaider = Number(war.raiding_faction) === myId;
+          const oppId = isRaider ? Number(war.defending_faction) : Number(war.raiding_faction);
+          if (oppId) {
+            return {
+              type: "Raid War",
+              oppId: oppId,
+              allyName: factionData.name || "Our Faction",
+              allyScore: Number(isRaider ? war.raider_score : war.defender_score) || 0,
+              enemyName: "Opponent",
+              enemyScore: Number(isRaider ? war.defender_score : war.raider_score) || 0,
+              target: 0
+            };
+          }
+        }
+      }
+      return null;
+    }
+
+    function updateWarBanner(warInfo, enemyFactionData) {
+      const banner = document.getElementById("warBanner");
+      if (!warInfo) {
+        banner.style.display = "none";
+        return;
+      }
+
+      const enemyName = (enemyFactionData && enemyFactionData.name) ? enemyFactionData.name : warInfo.enemyName;
+      const aScore = warInfo.allyScore;
+      const eScore = warInfo.enemyScore;
+      const diff = aScore - eScore;
+      const absDiff = Math.abs(diff);
+
+      document.getElementById("warAllyScore").textContent = warInfo.allyName + ": " + aScore.toLocaleString();
+      document.getElementById("warEnemyScore").textContent = eScore.toLocaleString() + " :" + enemyName;
+
+      const leadBadge = document.getElementById("warLeadBadge");
+      if (diff > 0) {
+        leadBadge.textContent = warInfo.allyName + " +" + absDiff.toLocaleString();
+        leadBadge.className = "lead-badge lead-ally";
+      } else if (diff < 0) {
+        leadBadge.textContent = enemyName + " +" + absDiff.toLocaleString();
+        leadBadge.className = "lead-badge lead-enemy";
+      } else {
+        leadBadge.textContent = "Tied (0)";
+        leadBadge.className = "lead-badge";
+      }
+
+      const targetText = document.getElementById("warTargetText");
+      if (warInfo.target > 0) {
+        if (warInfo.type === "Ranked War") {
+          targetText.textContent = "Lead: " + absDiff.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target";
+        } else {
+          targetText.textContent = "Target: " + warInfo.target.toLocaleString();
+        }
+      } else {
+        targetText.textContent = warInfo.type;
+      }
+
+      const total = aScore + eScore;
+      const allyPct = total > 0 ? Math.max(8, Math.min(92, (aScore / total) * 100)) : 50;
+      document.getElementById("warBarAlly").style.width = allyPct + "%";
+      document.getElementById("warBarEnemy").style.width = (100 - allyPct) + "%";
+
+      banner.style.display = "block";
+    }
+
+    // Single combined API v2 call per faction (basic + chain + members + wars in 1 request!)
+    async function loadFactionCombined(id, key) {
+      const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
+      const basic = data.basic || data;
+      const normalized = {
+        ID: basic.id || basic.ID || id,
+        name: basic.name || "Faction",
+        chain: data.chain || null,
+        members: {},
+        ranked_wars: {},
+        territory_wars: {},
+        raid_wars: {}
+      };
+
+      if (Array.isArray(data.members)) {
+        data.members.forEach(m => {
+          normalized.members[m.id] = m;
+        });
+      } else if (data.members && typeof data.members === "object") {
+        normalized.members = data.members;
+      }
+
+      if (data.wars) {
+        if (data.wars.ranked && data.wars.ranked.factions) {
+          const factionsMap = {};
+          data.wars.ranked.factions.forEach(f => {
+            factionsMap[f.id] = { name: f.name, score: f.score };
+          });
+          normalized.ranked_wars[data.wars.ranked.id || "active"] = {
+            factions: factionsMap,
+            war: { target: data.wars.ranked.target }
+          };
+        }
+        if (Array.isArray(data.wars.territory) && data.wars.territory.length > 0) {
+          const tw = data.wars.territory[0];
+          if (tw && tw.factions && tw.factions.length >= 2) {
+            normalized.territory_wars[tw.id || "active"] = {
+              assaulting_faction: tw.factions[0].id,
+              defending_faction: tw.factions[1].id,
+              score: tw.factions[0].score,
+              required_score: tw.target
+            };
+          }
+        }
+        if (data.wars.raid && data.wars.raid.factions && data.wars.raid.factions.length >= 2) {
+          const rw = data.wars.raid;
+          normalized.raid_wars[rw.id || "active"] = {
+            raiding_faction: rw.factions[0].id,
+            defending_faction: rw.factions[1].id,
+            raider_score: rw.factions[0].score,
+            defender_score: rw.factions[1].score
+          };
+        }
+      }
+
+      return normalized;
+    }
+
+    async function fetchAllData() {
+      const key = keyInput.value.trim();
+      if (!key) return;
+      document.getElementById("statusBar").textContent = "Syncing live data...";
+
+      try {
+        // Call 1: User location & home faction check
+        const userData = await fetchTornApi("/user/?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
+        if (userData && userData.status) {
+          if (userData.status.state === "Traveling") {
+            myCityCode = "TRAVEL";
+            document.getElementById("myLocBadge").textContent = "Your Location: Flying";
+          } else {
+            myCityCode = detectCityCode((userData.status.description || "") + " " + (userData.status.details || ""));
+            document.getElementById("myLocBadge").textContent = "Your Location: " + myCityCode;
+          }
+        }
+
+        if (!homeDetected && userData && userData.faction && userData.faction.faction_id) {
+          homeDetected = true;
+          const userFacId = Number(userData.faction.faction_id);
+          if (OUR_FACTIONS.some(f => f.id === userFacId) && userFacId !== selectedFactionId) {
+            selectedFactionId = userFacId;
+            sessionStorage.setItem("razers_tab", String(selectedFactionId));
+            updateActiveTab();
+          }
+        }
+
+        // Call 2: Friendly faction (basic + chain + members + wars combined)
+        const allyData = await loadFactionCombined(selectedFactionId, key);
+        cachedData.ally = allyData;
+        updateFlightTrackers(allyData);
+        document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
+
+        // Call 3: Enemy faction if in active war (basic + chain + members combined)
+        const warInfo = extractActiveWar(allyData, selectedFactionId);
+        if (warInfo && warInfo.oppId) {
+          const enemyData = await loadFactionCombined(warInfo.oppId, key);
+          cachedData.enemy = enemyData;
+          updateFlightTrackers(enemyData);
+          document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
+          updateWarBanner(warInfo, enemyData);
+        } else {
+          cachedData.enemy = null;
+          document.getElementById("enemyTitle").textContent = "No Active War";
+          updateWarBanner(null, null);
+        }
+
+        renderTables();
+        updateChains();
+        document.getElementById("statusBar").textContent = "Live • 15s sync (3 calls) • Updated " + new Date().toLocaleTimeString();
+      } catch (err) {
+        document.getElementById("statusBar").textContent = "Torn API Error: " + err.message;
+      }
+    }
+
+    function formatMMSS(sec) {
+      if (sec <= 0) return "00:00";
+      const m = String(Math.floor(sec / 60)).padStart(2, "0");
+      const s = String(sec % 60).padStart(2, "0");
+      return m + ":" + s;
+    }
+
+    function formatHHMMSS(sec) {
+      if (sec <= 0) return "00:00:00";
+      const h = String(Math.floor(sec / 3600)).padStart(2, "0");
+      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
+      const s = String(sec % 60).padStart(2, "0");
+      return h + ":" + m + ":" + s;
+    }
+
+    function renderChainBadge(factionData, badgeId, isAlly) {
+      const el = document.getElementById(badgeId);
+      if (!factionData || !factionData.chain || factionData.chain.current === 0) {
+        el.textContent = "Chain: None";
+        el.className = "chain-badge";
+        return;
+      }
+      const c = factionData.chain;
+      const now = Math.floor(Date.now() / 1000);
+      if (c.cooldown > 0 && c.end > now) {
+        const rem = c.end - now;
+        el.textContent = "Chain: " + c.current + " (CD " + formatMMSS(rem) + ")";
+        el.className = "chain-badge chain-cooldown";
+        return;
+      }
+      const timeoutRem = c.timeout > 0 ? Math.max(0, c.end - now) : 0;
+      if (timeoutRem > 0) {
+        el.textContent = "Chain: " + c.current + "/" + c.max + " (" + formatMMSS(timeoutRem) + ")";
+        if (isAlly && timeoutRem < 60) {
+          el.className = "chain-badge timer-red-fast";
+        } else if (isAlly && timeoutRem < 150) {
+          el.className = "chain-badge timer-yellow-slow";
+        } else if (!isAlly && timeoutRem <= 60) {
+          el.className = "chain-badge timer-red-fast";
+        } else {
+          el.className = "chain-badge chain-active";
+        }
+      } else {
+        el.textContent = "Chain: " + c.current;
+        el.className = "chain-badge";
+      }
+    }
+
+    function updateChains() {
+      renderChainBadge(cachedData.ally, "allyChain", true);
+      renderChainBadge(cachedData.enemy, "enemyChain", false);
+    }
+
+    function getTimerAlertClass(state, diff) {
+      if ((state !== "Hospital" && state !== "Jail") || diff <= 0) return "";
+      if (diff <= 120) return "timer-red-fast";
+      if (diff <= 300) return "timer-yellow-slow";
+      if (diff <= 600) return "timer-yellow-solid";
+      return "";
+    }
+
+    function isAttackReady(state, diff, city) {
+      if (state === "Fallen" || myCityCode === "TRAVEL" || city !== myCityCode) return false;
+      if (state === "Okay" || state === "Abroad") return true;
+      if ((state === "Hospital" || state === "Jail") && diff <= 20) return true;
+      return false;
+    }
+
+    function renderRoster(factionData, tbodyId) {
+      const tbody = document.getElementById(tbodyId);
+      if (!factionData || !factionData.members) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
+        return;
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const list = Object.entries(factionData.members).map(([id, m]) => {
+        const until = (m.status && m.status.until) ? Number(m.status.until) : 0;
+        const rawState = (m.status && m.status.state) ? m.status.state : "Okay";
+        const parsed = parseMemberStatus(m);
+
+        // 8-second post-release grace window
+        if ((rawState === "Hospital" || rawState === "Jail") && until > 0 && (now - until) >= 8) {
+          const newTier = parsed.city === "TC" ? 4 : 3;
+          return {
+            id,
+            name: m.name,
+            level: m.level,
+            onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
+            lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
+            rawState: "Okay",
+            until: 0,
+            label: "Okay (" + parsed.city + ")",
+            tier: newTier,
+            city: parsed.city,
+            sortKey: newTier === 4 ? m.name.toLowerCase() : parsed.city
+          };
+        }
+
+        let displayLabel = parsed.label;
+        if (rawState === "Traveling" && flightStarts[id]) {
+          const elapsed = Math.max(0, now - flightStarts[id].start);
+          const prefix = flightStarts[id].exact ? "+" : "~+";
+          displayLabel = parsed.label + ' <span class="flight-elapsed">(' + prefix + formatElapsedFlight(elapsed) + ')</span>';
+        }
+
+        return {
+          id,
+          name: m.name,
+          level: m.level,
+          onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
+          lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
+          rawState,
+          until,
+          label: displayLabel,
+          tier: parsed.tier,
+          city: parsed.city,
+          sortKey: parsed.sortKey
+        };
+      });
+
+      list.sort((a, b) => {
+        if (a.tier !== b.tier) return a.tier - b.tier;
+        if (a.tier === 1) return (a.until || 9999999999) - (b.until || 9999999999);
+        return a.sortKey.localeCompare(b.sortKey);
+      });
+
+      tbody.innerHTML = list.map(m => {
+        const diff = m.until > 0 ? m.until - now : 0;
+        const timerText = m.until > 0 ? formatHHMMSS(diff) : "-";
+        const alertClass = getTimerAlertClass(m.rawState, diff);
+        const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
+
+        const actionCell = m.rawState === "Fallen"
+          ? '<td style="color:#666;">-</td>'
+          : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
+
+        return '<tr>' +
+          '<td><div class="player-cell"><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
+          '<td>' + m.level + '</td>' +
+          '<td class="' + m.rawState + '">' + m.label + '</td>' +
+          '<td><span class="timer ' + alertClass + '">' + timerText + '</span></td>' +
+          actionCell +
+        '</tr>';
+      }).join("");
+    }
+
+    function renderTables() {
+      renderRoster(cachedData.ally, "allyBody");
+      renderRoster(cachedData.enemy, "enemyBody");
+    }
+
+    setInterval(() => {
+      if (cachedData.ally || cachedData.enemy) {
+        renderTables();
+        updateChains();
+      }
+    }, 1000);
+
+    setInterval(fetchAllData, 15000);
+
+    updateActiveTab();
+    if (keyInput.value) fetchAllData();
+  </script>
+</body>
+</html>
