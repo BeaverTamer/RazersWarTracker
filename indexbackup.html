@@ -61,6 +61,7 @@
     .Jail { color: #ffa726; font-weight: 600; }
     .Traveling { color: #42a5f5; }
     .Fallen { color: #757575; font-style: italic; }
+    .flight-elapsed { color: #90caf9; font-family: monospace; font-size: 0.78rem; }
     .timer { font-family: monospace; font-size: 0.82rem; padding: 1px 4px; border-radius: 3px; }
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 7px; border-radius: 4px; text-decoration: none; font-size: 0.75rem; font-weight: 700; display: inline-block; line-height: 18px; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
@@ -76,10 +77,12 @@
     @keyframes flashYellow { 0%, 100% { background-color: rgba(253, 216, 53, 0.28); color: #fff59d; } 50% { background-color: transparent; color: #fdd835; } }
     @keyframes flashRed { 0%, 100% { background-color: rgba(229, 57, 53, 0.48); color: #ffffff; } 50% { background-color: transparent; color: #ff5252; } }
     @keyframes flashReady { 0%, 100% { background-color: #2e7d32; color: #ffffff; box-shadow: 0 0 6px rgba(76, 175, 80, 0.8); } 50% { background-color: #1b5e20; color: #a5d6a7; box-shadow: none; } }
+    @keyframes flashLanded { 0%, 100% { background-color: rgba(76, 175, 80, 0.45); } 50% { background-color: rgba(76, 175, 80, 0.15); } }
     .timer-yellow-solid { background-color: rgba(253, 216, 53, 0.22); color: #fdd835; font-weight: bold; }
     .timer-yellow-slow { animation: flashYellow 1.6s infinite; font-weight: bold; }
     .timer-red-fast { animation: flashRed 0.65s infinite; font-weight: bold; }
     .atk-ready { animation: flashReady 1.5s infinite; }
+    .row-landed { animation: flashLanded 1s ease infinite; }
   </style>
 </head>
 <body>
@@ -162,6 +165,84 @@
     let homeDetected = Boolean(sessionStorage.getItem("razers_tab"));
     let myCityCode = "TC";
     let cachedData = { ally: null, enemy: null };
+
+    // Persistent Flight Tracking & Landing Flash State
+    let flightStarts = {};
+    let lastKnownStates = {};
+    let landedTimestamps = {}; // Tracks player ID -> timestamp when they landed
+
+    try {
+      const savedFlights = JSON.parse(localStorage.getItem("razers_flight_starts") || "{}");
+      const nowSec = Math.floor(Date.now() / 1000);
+      for (const [uid, info] of Object.entries(savedFlights)) {
+        if (info && info.start && (nowSec - info.start) < 25200) {
+          flightStarts[uid] = info;
+        }
+      }
+    } catch (e) {
+      flightStarts = {};
+    }
+
+    function saveFlightStarts() {
+      try {
+        localStorage.setItem("razers_flight_starts", JSON.stringify(flightStarts));
+      } catch (e) {}
+    }
+
+    function updateFlightTrackers(factionData) {
+      if (!factionData || !factionData.members) return;
+      const now = Math.floor(Date.now() / 1000);
+      let changed = false;
+
+      for (const [id, m] of Object.entries(factionData.members)) {
+        const state = (m.status && m.status.state) ? m.status.state : "Okay";
+        const prevState = lastKnownStates[id];
+
+        if (state === "Traveling") {
+          const parsed = parseMemberStatus(m);
+          const route = parsed.label;
+
+          if (!flightStarts[id] || flightStarts[id].route !== route) {
+            const wasOnGround = Boolean(prevState && prevState !== "Traveling");
+            flightStarts[id] = {
+              start: now,
+              route: route,
+              exact: wasOnGround
+            };
+            changed = true;
+          }
+        } else {
+          // Check if they just landed (transitioned from Traveling to non-Traveling)
+          if (prevState === "Traveling" && flightStarts[id]) {
+            landedTimestamps[id] = now;
+            // Clear landing highlight after 5 seconds
+            setTimeout(() => {
+              delete landedTimestamps[id];
+              renderTables();
+            }, 5000);
+          }
+          if (flightStarts[id]) {
+            delete flightStarts[id];
+            changed = true;
+          }
+        }
+
+        lastKnownStates[id] = state;
+      }
+
+      if (changed) saveFlightStarts();
+    }
+
+    function formatElapsedFlight(sec) {
+      if (sec < 0) sec = 0;
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if (h > 0) {
+        return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      }
+      return m + ":" + String(s).padStart(2, "0");
+    }
 
     function saveApiKey(val) {
       if (!val) return;
@@ -445,7 +526,6 @@
       banner.style.display = "block";
     }
 
-    // Single combined API v2 call per faction (basic + chain + members + wars in 1 request!)
     async function loadFactionCombined(id, key) {
       const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
       const basic = data.basic || data;
@@ -509,7 +589,6 @@
       document.getElementById("statusBar").textContent = "Syncing live data...";
 
       try {
-        // Call 1: User location & home faction check
         const userData = await fetchTornApi("/user/?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         if (userData && userData.status) {
           if (userData.status.state === "Traveling") {
@@ -531,16 +610,16 @@
           }
         }
 
-        // Call 2: Friendly faction (basic + chain + members + wars combined)
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
+        updateFlightTrackers(allyData);
         document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
 
-        // Call 3: Enemy faction if in active war (basic + chain + members combined)
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
+          updateFlightTrackers(enemyData);
           document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
           updateWarBanner(warInfo, enemyData);
         } else {
@@ -638,7 +717,6 @@
         const rawState = (m.status && m.status.state) ? m.status.state : "Okay";
         const parsed = parseMemberStatus(m);
 
-        // 8-second post-release grace window
         if ((rawState === "Hospital" || rawState === "Jail") && until > 0 && (now - until) >= 8) {
           const newTier = parsed.city === "TC" ? 4 : 3;
           return {
@@ -656,6 +734,13 @@
           };
         }
 
+        let displayLabel = parsed.label;
+        if (rawState === "Traveling" && flightStarts[id]) {
+          const elapsed = Math.max(0, now - flightStarts[id].start);
+          const prefix = flightStarts[id].exact ? "+" : "~+";
+          displayLabel = parsed.label + ' <span class="flight-elapsed">(' + prefix + formatElapsedFlight(elapsed) + ')</span>';
+        }
+
         return {
           id,
           name: m.name,
@@ -664,7 +749,7 @@
           lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
           rawState,
           until,
-          label: parsed.label,
+          label: displayLabel,
           tier: parsed.tier,
           city: parsed.city,
           sortKey: parsed.sortKey
@@ -674,6 +759,11 @@
       list.sort((a, b) => {
         if (a.tier !== b.tier) return a.tier - b.tier;
         if (a.tier === 1) return (a.until || 9999999999) - (b.until || 9999999999);
+        if (a.tier === 2) {
+          const startA = flightStarts[a.id] ? flightStarts[a.id].start : now;
+          const startB = flightStarts[b.id] ? flightStarts[b.id].start : now;
+          return startA - startB;
+        }
         return a.sortKey.localeCompare(b.sortKey);
       });
 
@@ -682,12 +772,13 @@
         const timerText = m.until > 0 ? formatHHMMSS(diff) : "-";
         const alertClass = getTimerAlertClass(m.rawState, diff);
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
+        const landedClass = landedTimestamps[m.id] ? " row-landed" : "";
 
         const actionCell = m.rawState === "Fallen"
           ? '<td style="color:#666;">-</td>'
           : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
-        return '<tr>' +
+        return '<tr class="' + landedClass + '">' +
           '<td><div class="player-cell"><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
           '<td>' + m.level + '</td>' +
           '<td class="' + m.rawState + '">' + m.label + '</td>' +
