@@ -41,6 +41,8 @@
     .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
     .panel-header-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
     .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .faction-title-link { color: #fff; text-decoration: none; }
+    .faction-title-link:hover { text-decoration: underline; color: #90caf9; }
     .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
     .collapse-btn:hover { background: #333; color: #fff; }
     .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
@@ -134,7 +136,7 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="allyCollapseBtn" onclick="togglePanel('ally')">[-]</button>
-          <h2 id="allyTitle">Razers</h2>
+          <h2><a id="allyTitleLink" class="faction-title-link" href="#" target="_blank">Razers</a></h2>
         </div>
         <span class="chain-badge" id="allyChain">Chain: --</span>
       </div>
@@ -149,7 +151,7 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="enemyCollapseBtn" onclick="togglePanel('enemy')">[-]</button>
-          <h2 id="enemyTitle">Warring Opponent</h2>
+          <h2><a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank">Warring Opponent</a></h2>
         </div>
         <span class="chain-badge" id="enemyChain">Chain: --</span>
       </div>
@@ -387,7 +389,9 @@
       });
       const current = OUR_FACTIONS.find(f => f.id === selectedFactionId);
       if (current) {
-        document.getElementById("allyTitle").textContent = current.name + " [" + current.id + "]";
+        const link = document.getElementById("allyTitleLink");
+        link.textContent = current.name + " [" + current.id + "]";
+        link.href = "https://www.torn.com/profiles.php?XID=" + current.id;
       }
     }
 
@@ -685,18 +689,27 @@
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
         updateFlightTrackers(allyData);
-        document.getElementById("allyTitle").textContent = allyData.name + " [" + allyData.ID + "]";
+        
+        const allyLink = document.getElementById("allyTitleLink");
+        allyLink.textContent = allyData.name + " [" + allyData.ID + "]";
+        allyLink.href = "https://www.torn.com/profiles.php?XID=" + allyData.ID;
 
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
           updateFlightTrackers(enemyData);
-          document.getElementById("enemyTitle").textContent = enemyData.name + " [" + enemyData.ID + "]";
+          
+          const enemyLink = document.getElementById("enemyTitleLink");
+          enemyLink.textContent = enemyData.name + " [" + enemyData.ID + "]";
+          enemyLink.href = "https://www.torn.com/profiles.php?XID=" + enemyData.ID;
+
           updateWarBanner(warInfo, enemyData);
         } else {
           cachedData.enemy = null;
-          document.getElementById("enemyTitle").textContent = "No Active War";
+          const enemyLink = document.getElementById("enemyTitleLink");
+          enemyLink.textContent = "No Active War";
+          enemyLink.href = "#";
           updateWarBanner(null, null);
         }
 
@@ -725,22 +738,33 @@
 
     function renderChainBadge(factionData, badgeId, isAlly) {
       const el = document.getElementById(badgeId);
-      if (!factionData || !factionData.chain || factionData.chain.current === 0) {
+      if (!factionData || !factionData.chain) {
         el.textContent = "Chain: None";
         el.className = "chain-badge";
         return;
       }
       const c = factionData.chain;
       const now = Math.floor(Date.now() / 1000);
-      if (c.cooldown > 0 && c.end > now) {
-        const rem = c.end - now;
-        el.textContent = "Chain: " + c.current + " (CD " + formatMMSS(rem) + ")";
-        el.className = "chain-badge chain-cooldown";
+
+      // Check Cooldown first
+      if (c.cooldown > 0) {
+        const cdRem = c.cooldown - now;
+        if (cdRem > 0) {
+          el.textContent = "Chain: " + (c.current || 0) + " (CD " + formatMMSS(cdRem) + ")";
+          el.className = "chain-badge chain-cooldown";
+          return;
+        }
+      }
+
+      if (!c.current || c.current === 0) {
+        el.textContent = "Chain: None";
+        el.className = "chain-badge";
         return;
       }
+
       const timeoutRem = c.timeout > 0 ? Math.max(0, c.end - now) : 0;
       if (timeoutRem > 0) {
-        el.textContent = "Chain: " + c.current + "/" + c.max + " (" + formatMMSS(timeoutRem) + ")";
+        el.textContent = "Chain: " + c.current + "/" + (c.max || "?") + " (" + formatMMSS(timeoutRem) + ")";
         if (isAlly && timeoutRem < 60) {
           el.className = "chain-badge timer-red-fast";
         } else if (isAlly && timeoutRem < 150) {
