@@ -391,7 +391,7 @@
       if (current) {
         const link = document.getElementById("allyTitleLink");
         link.textContent = current.name + " [" + current.id + "]";
-        link.href = "https://www.torn.com/profiles.php?XID=" + current.id;
+        link.href = "https://www.torn.com/factions.php?step=profile&ID=" + current.id;
       }
     }
 
@@ -692,7 +692,7 @@
         
         const allyLink = document.getElementById("allyTitleLink");
         allyLink.textContent = allyData.name + " [" + allyData.ID + "]";
-        allyLink.href = "https://www.torn.com/profiles.php?XID=" + allyData.ID;
+        allyLink.href = "https://www.torn.com/factions.php?step=profile&ID=" + allyData.ID;
 
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
@@ -702,7 +702,7 @@
           
           const enemyLink = document.getElementById("enemyTitleLink");
           enemyLink.textContent = enemyData.name + " [" + enemyData.ID + "]";
-          enemyLink.href = "https://www.torn.com/profiles.php?XID=" + enemyData.ID;
+          enemyLink.href = "https://www.torn.com/factions.php?step=profile&ID=" + enemyData.ID;
 
           updateWarBanner(warInfo, enemyData);
         } else {
