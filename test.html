@@ -38,7 +38,7 @@
 
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; touch-action: pan-y; }
     @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
-    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; }
+    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; contain: content; }
     .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
     .panel-header-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
     .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -196,6 +196,10 @@
     let activeWarInfo = null;
     let apiIntervalId = null;
 
+    // Direct references to live timer DOM nodes to eliminate innerHTML rebuilds
+    let liveCountdownNodes = [];
+    let liveFlightNodes = [];
+
     // DOM Element Cache
     const statusBarEl = document.getElementById("statusBar");
     const myLocBadgeEl = document.getElementById("myLocBadge");
@@ -290,14 +294,22 @@
       const now = Math.floor(Date.now() / 1000);
       let changed = false;
 
-      for (const [id, m] of Object.entries(factionData.members)) {
-        const state = (m.status && m.status.state) ? m.status.state : "Okay";
+      // Prune stale flight entries > 8 hours old
+      for (const uid in flightStarts) {
+        if ((now - flightStarts[uid].start) >= 28800) {
+          delete flightStarts[uid];
+          changed = true;
+        }
+      }
+
+      for (let i = 0; i < factionData.members.length; i++) {
+        const m = factionData.members[i];
+        const id = m.id;
+        const state = m.rawState;
         const prevState = lastKnownStates[id];
 
         if (state === "Traveling") {
-          const parsed = parseMemberStatus(m);
-          const route = parsed.label;
-
+          const route = m.label;
           if (!flightStarts[id] || flightStarts[id].route !== route) {
             const wasOnGround = Boolean(prevState && prevState !== "Traveling");
             flightStarts[id] = { start: now, route: route, exact: wasOnGround };
@@ -323,11 +335,12 @@
 
     function formatElapsedFlight(sec) {
       if (sec < 0) sec = 0;
-      const h = Math.floor(sec / 3600);
-      const m = Math.floor((sec % 3600) / 60);
+      const h = (sec / 3600) | 0;
+      const m = ((sec % 3600) / 60) | 0;
       const s = sec % 60;
-      if (h > 0) return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-      return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      const mm = m < 10 ? "0" + m : "" + m;
+      const ss = s < 10 ? "0" + s : "" + s;
+      return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
     }
 
     function saveApiKey(val) {
@@ -394,6 +407,7 @@
     function switchTab(id) {
       selectedFactionId = Number(id);
       sessionStorage.setItem("razers_tab", String(selectedFactionId));
+      lastKnownStates = {};
       updateActiveTab();
       fetchAllData();
     }
@@ -451,9 +465,10 @@
     function detectCityCode(text) {
       if (!text) return "TC";
       const low = text.toLowerCase();
-      for (const entry of CITY_CODES) {
-        for (const k of entry.keys) {
-          if (low.includes(k)) return entry.code;
+      for (let i = 0; i < CITY_CODES.length; i++) {
+        const entry = CITY_CODES[i];
+        for (let j = 0; j < entry.keys.length; j++) {
+          if (low.indexOf(entry.keys[j]) !== -1) return entry.code;
         }
       }
       return "TC";
@@ -477,15 +492,15 @@
       if (state === "Traveling") {
         const low = combined.toLowerCase();
         let route = "TC > ?";
-        if (low.includes("returning to torn from")) {
+        if (low.indexOf("returning to torn from") !== -1) {
           const fromCity = detectCityCode(low.split("from").pop());
           route = fromCity + " > TC";
-        } else if (low.includes("traveling to")) {
+        } else if (low.indexOf("traveling to") !== -1) {
           const toCity = detectCityCode(low.split("to").pop());
           route = "TC > " + toCity;
         } else {
           const otherCity = detectCityCode(low.replace("torn", ""));
-          route = low.includes("to torn") ? otherCity + " > TC" : "TC > " + otherCity;
+          route = low.indexOf("to torn") !== -1 ? otherCity + " > TC" : "TC > " + otherCity;
         }
         return { label: route, tier: 2, city: "TRAVEL", sortKey: route };
       }
@@ -612,11 +627,14 @@
 
     function formatDurationDHMS(totalSec) {
       if (totalSec <= 0) return "00:00:00";
-      const d = Math.floor(totalSec / 86400);
-      const h = Math.floor((totalSec % 86400) / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
+      const d = (totalSec / 86400) | 0;
+      const h = ((totalSec % 86400) / 3600) | 0;
+      const m = ((totalSec % 3600) / 60) | 0;
       const s = totalSec % 60;
-      const hms = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      const hh = h < 10 ? "0" + h : "" + h;
+      const mm = m < 10 ? "0" + m : "" + m;
+      const ss = s < 10 ? "0" + s : "" + s;
+      const hms = hh + ":" + mm + ":" + ss;
       return d > 0 ? d + "d " + hms : hms;
     }
 
@@ -635,7 +653,7 @@
       }
 
       if (warInfo.type === "Ranked War" && warInfo.target > 0 && warInfo.start > 0) {
-        const nowSec = Math.floor(Date.now() / 1000);
+        const nowSec = (Date.now() / 1000) | 0;
         const elapsedHours = Math.max(0, (nowSec - warInfo.start) / 3600);
         
         const currentDecayedSteps = elapsedHours >= 25 ? Math.min(99, Math.floor(elapsedHours - 24)) : 0;
@@ -663,6 +681,7 @@
       }
     }
 
+    // Lean projection: discards excess API payload fields immediately to save RAM
     async function loadFactionCombined(id, key) {
       const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
       const basic = data.basic || data;
@@ -670,16 +689,32 @@
         ID: basic.id || basic.ID || id,
         name: basic.name || "Faction",
         chain: data.chain || null,
-        members: {},
+        members: [],
         ranked_wars: {},
         territory_wars: {},
         raid_wars: {}
       };
 
-      if (Array.isArray(data.members)) {
-        data.members.forEach(m => { normalized.members[m.id] = m; });
-      } else if (data.members && typeof data.members === "object") {
-        normalized.members = data.members;
+      const rawMembers = Array.isArray(data.members)
+        ? data.members
+        : (data.members && typeof data.members === "object" ? Object.entries(data.members).map(([k, v]) => ({ ...v, id: v.id || k })) : []);
+
+      for (let i = 0; i < rawMembers.length; i++) {
+        const m = rawMembers[i];
+        const parsed = parseMemberStatus(m);
+        normalized.members.push({
+          id: String(m.id),
+          name: m.name,
+          level: m.level,
+          onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
+          lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
+          rawState: (m.status && m.status.state) ? m.status.state : "Okay",
+          until: (m.status && m.status.until) ? Number(m.status.until) : 0,
+          label: parsed.label,
+          tier: parsed.tier,
+          city: parsed.city,
+          sortKey: parsed.sortKey
+        });
       }
 
       if (data.wars) {
@@ -779,17 +814,17 @@
 
     function formatMMSS(sec) {
       if (sec <= 0) return "00:00";
-      const m = String(Math.floor(sec / 60)).padStart(2, "0");
-      const s = String(sec % 60).padStart(2, "0");
-      return m + ":" + s;
+      const m = (sec / 60) | 0;
+      const s = sec % 60;
+      return (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
     }
 
     function formatHHMMSS(sec) {
       if (sec <= 0) return "00:00:00";
-      const h = String(Math.floor(sec / 3600)).padStart(2, "0");
-      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
-      const s = String(sec % 60).padStart(2, "0");
-      return h + ":" + m + ":" + s;
+      const h = (sec / 3600) | 0;
+      const m = ((sec % 3600) / 60) | 0;
+      const s = sec % 60;
+      return (h < 10 ? "0" + h : "" + h) + ":" + (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
     }
 
     function renderChainBadge(factionData, el, isAlly) {
@@ -799,7 +834,7 @@
         return;
       }
       const c = factionData.chain;
-      const now = Math.floor(Date.now() / 1000);
+      const now = (Date.now() / 1000) | 0;
 
       if (c.cooldown > 0) {
         const cdRem = c.cooldown - now;
@@ -860,30 +895,20 @@
         return;
       }
 
-      const now = Math.floor(Date.now() / 1000);
-      const list = Object.entries(factionData.members).map(([id, m]) => {
-        const until = (m.status && m.status.until) ? Number(m.status.until) : 0;
-        const rawState = (m.status && m.status.state) ? m.status.state : "Okay";
-        const parsed = parseMemberStatus(m);
-
-        if ((rawState === "Hospital" || rawState === "Jail") && until > 0 && (now - until) >= 8) {
-          const newTier = parsed.city === "TC" ? 4 : 3;
+      const now = (Date.now() / 1000) | 0;
+      const list = factionData.members.map(m => {
+        if ((m.rawState === "Hospital" || m.rawState === "Jail") && m.until > 0 && (now - m.until) >= 8) {
+          const newTier = m.city === "TC" ? 4 : 3;
           return {
-            id, name: m.name, level: m.level,
-            onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
-            lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
-            rawState: "Okay", until: 0, label: "Okay (" + parsed.city + ")",
-            tier: newTier, city: parsed.city, sortKey: newTier === 4 ? m.name.toLowerCase() : parsed.city
+            ...m,
+            rawState: "Okay",
+            until: 0,
+            label: "Okay (" + m.city + ")",
+            tier: newTier,
+            sortKey: newTier === 4 ? m.name.toLowerCase() : m.city
           };
         }
-
-        return {
-          id, name: m.name, level: m.level,
-          onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
-          lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
-          rawState, until, label: parsed.label,
-          tier: parsed.tier, city: parsed.city, sortKey: parsed.sortKey
-        };
+        return m;
       });
 
       list.sort((a, b) => {
@@ -901,15 +926,19 @@
         const diff = m.until > 0 ? m.until - now : 0;
         let timerText = "-";
         let alertClass = "";
+        let dataAttrs = "";
 
         if (m.rawState === "Traveling" && flightStarts[m.id]) {
-          const elapsed = Math.max(0, now - flightStarts[m.id].start);
-          const prefix = flightStarts[m.id].exact ? "+" : "~+";
+          const fInfo = flightStarts[m.id];
+          const elapsed = Math.max(0, now - fInfo.start);
+          const prefix = fInfo.exact ? "+" : "~+";
           timerText = prefix + formatElapsedFlight(elapsed);
           alertClass = "timer-flight";
+          dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '"';
         } else if (m.until > 0) {
           timerText = formatHHMMSS(diff);
           alertClass = getTimerAlertClass(m.rawState, diff);
+          dataAttrs = ' data-until="' + m.until + '" data-state="' + m.rawState + '" data-city="' + m.city + '"';
         }
 
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
@@ -922,7 +951,7 @@
           '<td><div class="player-cell"><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
           '<td>' + m.level + '</td>' +
           '<td class="' + m.rawState + '">' + m.label + '</td>' +
-          '<td><span class="timer ' + alertClass + '">' + timerText + '</span></td>' +
+          '<td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span></td>' +
           actionCell +
         '</tr>';
       }).join("");
@@ -931,18 +960,63 @@
     function renderTables() {
       renderRoster(cachedData.ally, allyBodyEl);
       renderRoster(cachedData.enemy, enemyBodyEl);
+      // Cache live timer spans so 1-second loop updates textContent without rebuilding DOM
+      liveCountdownNodes = Array.from(document.querySelectorAll(".timer[data-until]"));
+      liveFlightNodes = Array.from(document.querySelectorAll(".timer[data-flight-start]"));
     }
 
-    // Fully restored 1-second tick loop calling renderTables() so timers and countdowns increment smoothly
-    setInterval(() => {
-      if (cachedData.ally || cachedData.enemy) {
+    // Zero-allocation 1-second timer tick loop
+    function tickTimers() {
+      if (document.hidden) return;
+      const now = (Date.now() / 1000) | 0;
+      let needsFullResort = false;
+
+      for (let i = 0; i < liveFlightNodes.length; i++) {
+        const el = liveFlightNodes[i];
+        const start = Number(el.dataset.flightStart);
+        el.textContent = el.dataset.flightPrefix + formatElapsedFlight(now - start);
+      }
+
+      for (let i = 0; i < liveCountdownNodes.length; i++) {
+        const el = liveCountdownNodes[i];
+        const until = Number(el.dataset.until);
+        const diff = until - now;
+
+        if (diff <= -8) {
+          needsFullResort = true;
+          break;
+        }
+
+        el.textContent = formatHHMMSS(diff);
+
+        // Update threshold classes only when crossing alert boundaries
+        if (diff === 600 || diff === 300 || diff === 120 || diff <= 0) {
+          el.className = "timer " + getTimerAlertClass(el.dataset.state, diff);
+        }
+        if (diff === 20) {
+          const atkBtn = el.parentElement.nextElementSibling && el.parentElement.nextElementSibling.firstElementChild;
+          if (atkBtn && isAttackReady(el.dataset.state, diff, el.dataset.city)) {
+            atkBtn.classList.add("atk-ready");
+          }
+        }
+      }
+
+      if (needsFullResort) {
         renderTables();
+      }
+
+      if (cachedData.ally || cachedData.enemy) {
         updateChains();
         if (activeWarInfo) {
           refreshWarBannerDynamic(activeWarInfo);
         }
       }
-    }, 1000);
+    }
+
+    setInterval(tickTimers, 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) tickTimers();
+    });
 
     setupApiInterval();
     applyCollapseStates();
