@@ -26,11 +26,12 @@
     .war-scores-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; flex-wrap: wrap; }
     .war-team-ally { color: #81c784; }
     .war-team-enemy { color: #e57373; }
-    .war-center-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+    .war-center-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; flex-wrap: wrap; }
     .lead-badge { padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #2c2c2c; color: #ddd; }
     .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border: 1px solid #4caf50; }
     .lead-enemy { background: rgba(198, 40, 40, 0.3); color: #ef9a9a; border: 1px solid #e53935; }
     .target-text { color: #bbb; font-family: monospace; font-size: 0.8rem; }
+    .war-end-countdown { color: #90caf9; font-family: monospace; font-size: 0.8rem; font-weight: 700; }
     .war-bar-track { width: 100%; height: 7px; background: #2a2a2a; border-radius: 4px; overflow: hidden; display: flex; }
     .war-bar-ally { background: #43a047; height: 100%; transition: width 0.4s ease; }
     .war-bar-enemy { background: #e53935; height: 100%; transition: width 0.4s ease; }
@@ -121,7 +122,8 @@
       <span class="war-team-ally" id="warAllyScore">Razers: 0</span>
       <div class="war-center-info">
         <span class="lead-badge" id="warLeadBadge">Tied</span>
-        <span class="target-text" id="warTargetText">Target: --</span>
+        <span class="target-text" id="warTargetText">Lead: 0 / 0 Target</span>
+        <span class="war-end-countdown" id="warEndCountdown"></span>
       </div>
       <span class="war-team-enemy" id="warEnemyScore">0 :Opponent</span>
     </div>
@@ -589,7 +591,7 @@
         leadBadge.className = "lead-badge";
       }
 
-      refreshWarBannerDynamic(warInfo, enemyName);
+      refreshWarBannerDynamic(warInfo);
 
       const total = aScore + eScore;
       const allyPct = total > 0 ? Math.max(8, Math.min(92, (aScore / total) * 100)) : 50;
@@ -599,59 +601,23 @@
       banner.style.display = "block";
     }
 
-    // Live tick update for ranked war decay target & countdown
-    function refreshWarBannerDynamic(warInfo, enemyName) {
+    function formatDurationDHMS(totalSec) {
+      if (totalSec <= 0) return "00:00:00";
+      const d = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const hms = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      return d > 0 ? d + "d " + hms : hms;
+    }
+
+    function refreshWarBannerDynamic(warInfo) {
       if (!warInfo) return;
       const targetText = document.getElementById("warTargetText");
+      const countdownEl = document.getElementById("warEndCountdown");
+      const absDiff = Math.abs(warInfo.allyScore - warInfo.enemyScore);
 
-      if (warInfo.type === "Ranked War" && warInfo.target > 0 && warInfo.start > 0) {
-        const nowSec = Math.floor(Date.now() / 1000);
-        const elapsedSec = nowSec - warInfo.start;
-        const elapsedHours = elapsedSec / 3600;
-
-        let currentTarget = warInfo.target;
-        let countdownStr = "";
-
-        if (elapsedHours > 24) {
-          // Hour 25 onwards: 1% decay per hour (max 99 hours decay)
-          const hoursIntoDecay = Math.floor(elapsedHours - 24);
-          const decayPct = Math.min(99, hoursIntoDecay);
-          const reduction = Math.floor(warInfo.target * (decayPct / 100));
-          currentTarget = Math.max(1, warInfo.target - reduction);
-
-          // Calculate time until the next 1% drop
-          const nextDropTime = warInfo.start + ((24 + hoursIntoDecay + 1) * 3600);
-          const remSec = nextDropTime - nowSec;
-          if (remSec > 0) {
-            const h = Math.floor(remSec / 3600);
-            const m = Math.floor((remSec % 3600) / 60);
-            const s = remSec % 60;
-            if (h > 0) {
-              countdownStr = " (Next -1% in " + h + "h " + m + "m)";
-            } else {
-              countdownStr = " (Next -1% in " + m + "m " + s + "s)";
-            }
-          }
-        } else {
-          // First 24 hours: countdown until decay starts at hour 25
-          const decayStartTime = warInfo.start + (25 * 3600);
-          const remSec = decayStartTime - nowSec;
-          if (remSec > 0) {
-            const h = Math.floor(remSec / 3600);
-            const m = Math.floor((remSec % 3600) / 60);
-            const s = remSec % 60;
-            if (h > 0) {
-              countdownStr = " (Decay in " + h + "h " + m + "m)";
-            } else {
-              countdownStr = " (Decay in " + m + "m " + s + "s)";
-            }
-          }
-        }
-
-        const absDiff = Math.abs(warInfo.allyScore - warInfo.enemyScore);
-        targetText.textContent = "Target: " + currentTarget.toLocaleString() + countdownStr;
-      } else if (warInfo.target > 0) {
-        const absDiff = Math.abs(warInfo.allyScore - warInfo.enemyScore);
+      if (warInfo.target > 0) {
         if (warInfo.type === "Ranked War") {
           targetText.textContent = "Lead: " + absDiff.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target";
         } else {
@@ -659,6 +625,39 @@
         }
       } else {
         targetText.textContent = warInfo.type;
+      }
+
+      // Calculate exact countdown until current lead >= decayed target
+      if (warInfo.type === "Ranked War" && warInfo.target > 0 && warInfo.start > 0) {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const elapsedHours = Math.max(0, (nowSec - warInfo.start) / 3600);
+        
+        // Torn's war.target from v2 API is already the current decayed target.
+        // Reverse any decay already applied to determine the original 100% target:
+        const currentDecayedSteps = elapsedHours >= 25 ? Math.min(99, Math.floor(elapsedHours - 24)) : 0;
+        const remainingFraction = Math.max(0.01, 1 - (currentDecayedSteps * 0.01));
+        const originalTarget = Math.round(warInfo.target / remainingFraction);
+        const hourlyDrop = originalTarget * 0.01;
+
+        if (absDiff >= warInfo.target) {
+          countdownEl.textContent = "• War Ended";
+        } else if (hourlyDrop <= 0) {
+          countdownEl.textContent = "";
+        } else {
+          // Total decay steps from originalTarget needed so that originalTarget - (steps * hourlyDrop) <= absDiff
+          const totalStepsNeeded = Math.min(99, Math.ceil((originalTarget - absDiff) / hourlyDrop));
+          // Step 1 occurs at hour 25 (start + 25*3600), Step K occurs at start + (24 + K)*3600
+          const targetEndTimestamp = warInfo.start + ((24 + Math.max(1, totalStepsNeeded)) * 3600);
+          const remSec = targetEndTimestamp - nowSec;
+
+          if (remSec > 0) {
+            countdownEl.textContent = "• Ends in " + formatDurationDHMS(remSec);
+          } else {
+            countdownEl.textContent = "• Ending soon";
+          }
+        }
+      } else {
+        countdownEl.textContent = "";
       }
     }
 
@@ -956,7 +955,7 @@
       renderRoster(cachedData.enemy, "enemyBody");
     }
 
-    // 1-second tick loop updates flight counters, chain timers, and war decay target countdowns smoothly
+    // 1-second tick loop updates flight counters, chain timers, and war end countdown smoothly
     setInterval(() => {
       if (cachedData.ally || cachedData.enemy) {
         renderTables();
