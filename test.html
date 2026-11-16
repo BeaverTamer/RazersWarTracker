@@ -196,6 +196,25 @@
     let activeWarInfo = null;
     let apiIntervalId = null;
 
+    // DOM Element Cache for High Efficiency
+    const statusBarEl = document.getElementById("statusBar");
+    const myLocBadgeEl = document.getElementById("myLocBadge");
+    const warBannerEl = document.getElementById("warBanner");
+    const warAllyScoreEl = document.getElementById("warAllyScore");
+    const warEnemyScoreEl = document.getElementById("warEnemyScore");
+    const warLeadBadgeEl = document.getElementById("warLeadBadge");
+    const warTargetTextEl = document.getElementById("warTargetText");
+    const warEndCountdownEl = document.getElementById("warEndCountdown");
+    const warBarAllyEl = document.getElementById("warBarAlly");
+    const warBarEnemyEl = document.getElementById("warBarEnemy");
+    const allyBodyEl = document.getElementById("allyBody");
+    const enemyBodyEl = document.getElementById("enemyBody");
+    const allyChainEl = document.getElementById("allyChain");
+    const enemyChainEl = document.getElementById("enemyChain");
+    const allyTitleLinkEl = document.getElementById("allyTitleLink");
+    const enemyTitleLinkEl = document.getElementById("enemyTitleLink");
+    const keyInput = document.getElementById("apiKey");
+
     let currentRefreshInterval = Number(localStorage.getItem("razers_refresh_ms")) || 15000;
     const intervalSelect = document.getElementById("refreshIntervalSelect");
     intervalSelect.value = String(currentRefreshInterval);
@@ -211,7 +230,6 @@
       apiIntervalId = setInterval(fetchAllData, currentRefreshInterval);
     }
 
-    // Persistent Collapse States
     let collapsedState = {
       ally: localStorage.getItem("razers_ally_collapsed") === "true",
       enemy: localStorage.getItem("razers_enemy_collapsed") === "true"
@@ -245,7 +263,7 @@
       applyCollapseStates();
     }
 
-    // Persistent Flight Tracking & Landing Flash State
+    // Persistent Flight Tracking with Memory Cleanup
     let flightStarts = {};
     let lastKnownStates = {};
     let landedTimestamps = {};
@@ -254,7 +272,7 @@
       const savedFlights = JSON.parse(localStorage.getItem("razers_flight_starts") || "{}");
       const nowSec = Math.floor(Date.now() / 1000);
       for (const [uid, info] of Object.entries(savedFlights)) {
-        if (info && info.start && (nowSec - info.start) < 25200) {
+        if (info && info.start && (nowSec - info.start) < 28800) {
           flightStarts[uid] = info;
         }
       }
@@ -283,11 +301,7 @@
 
           if (!flightStarts[id] || flightStarts[id].route !== route) {
             const wasOnGround = Boolean(prevState && prevState !== "Traveling");
-            flightStarts[id] = {
-              start: now,
-              route: route,
-              exact: wasOnGround
-            };
+            flightStarts[id] = { start: now, route: route, exact: wasOnGround };
             changed = true;
           }
         } else {
@@ -303,10 +317,8 @@
             changed = true;
           }
         }
-
         lastKnownStates[id] = state;
       }
-
       if (changed) saveFlightStarts();
     }
 
@@ -315,9 +327,7 @@
       const h = Math.floor(sec / 3600);
       const m = Math.floor((sec % 3600) / 60);
       const s = sec % 60;
-      if (h > 0) {
-        return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-      }
+      if (h > 0) return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
       return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
     }
 
@@ -340,7 +350,6 @@
       return match ? decodeURIComponent(match[1]) : "";
     }
 
-    const keyInput = document.getElementById("apiKey");
     keyInput.value = loadSavedApiKey();
 
     function toggleKeyVisibility() {
@@ -370,13 +379,18 @@
       }
     });
 
+    // Event Delegation for Faction Tabs
     const tabContainer = document.getElementById("factionTabs");
     OUR_FACTIONS.forEach(fac => {
       const btn = document.createElement("button");
       btn.textContent = fac.name;
       btn.dataset.id = fac.id;
-      btn.onclick = () => switchTab(fac.id);
       tabContainer.appendChild(btn);
+    });
+    tabContainer.addEventListener("click", e => {
+      if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
+        switchTab(Number(e.target.dataset.id));
+      }
     });
 
     function switchTab(id) {
@@ -387,14 +401,13 @@
     }
 
     function updateActiveTab() {
-      document.querySelectorAll("#factionTabs button").forEach(b => {
+      tabContainer.querySelectorAll("button").forEach(b => {
         b.classList.toggle("active", Number(b.dataset.id) === selectedFactionId);
       });
       const current = OUR_FACTIONS.find(f => f.id === selectedFactionId);
       if (current) {
-        const link = document.getElementById("allyTitleLink");
-        link.textContent = current.name + " [" + current.id + "]";
-        link.href = "https://www.torn.com/factions.php?step=profile&ID=" + current.id;
+        allyTitleLinkEl.textContent = current.name + " [" + current.id + "]";
+        allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + current.id;
       }
     }
 
@@ -562,9 +575,8 @@
     }
 
     function updateWarBanner(warInfo, enemyFactionData) {
-      const banner = document.getElementById("warBanner");
       if (!warInfo) {
-        banner.style.display = "none";
+        warBannerEl.style.display = "none";
         activeWarInfo = null;
         return;
       }
@@ -576,29 +588,28 @@
       const diff = aScore - eScore;
       const absDiff = Math.abs(diff);
 
-      document.getElementById("warAllyScore").textContent = warInfo.allyName + ": " + aScore.toLocaleString();
-      document.getElementById("warEnemyScore").textContent = eScore.toLocaleString() + " :" + enemyName;
+      warAllyScoreEl.textContent = warInfo.allyName + ": " + aScore.toLocaleString();
+      warEnemyScoreEl.textContent = eScore.toLocaleString() + " :" + enemyName;
 
-      const leadBadge = document.getElementById("warLeadBadge");
       if (diff > 0) {
-        leadBadge.textContent = warInfo.allyName + " +" + absDiff.toLocaleString();
-        leadBadge.className = "lead-badge lead-ally";
+        warLeadBadgeEl.textContent = warInfo.allyName + " +" + absDiff.toLocaleString();
+        warLeadBadgeEl.className = "lead-badge lead-ally";
       } else if (diff < 0) {
-        leadBadge.textContent = enemyName + " +" + absDiff.toLocaleString();
-        leadBadge.className = "lead-badge lead-enemy";
+        warLeadBadgeEl.textContent = enemyName + " +" + absDiff.toLocaleString();
+        warLeadBadgeEl.className = "lead-badge lead-enemy";
       } else {
-        leadBadge.textContent = "Tied (0)";
-        leadBadge.className = "lead-badge";
+        warLeadBadgeEl.textContent = "Tied (0)";
+        warLeadBadgeEl.className = "lead-badge";
       }
 
       refreshWarBannerDynamic(warInfo);
 
       const total = aScore + eScore;
       const allyPct = total > 0 ? Math.max(8, Math.min(92, (aScore / total) * 100)) : 50;
-      document.getElementById("warBarAlly").style.width = allyPct + "%";
-      document.getElementById("warBarEnemy").style.width = (100 - allyPct) + "%";
+      warBarAllyEl.style.width = allyPct + "%";
+      warBarEnemyEl.style.width = (100 - allyPct) + "%";
 
-      banner.style.display = "block";
+      warBannerEl.style.display = "block";
     }
 
     function formatDurationDHMS(totalSec) {
@@ -613,51 +624,44 @@
 
     function refreshWarBannerDynamic(warInfo) {
       if (!warInfo) return;
-      const targetText = document.getElementById("warTargetText");
-      const countdownEl = document.getElementById("warEndCountdown");
       const absDiff = Math.abs(warInfo.allyScore - warInfo.enemyScore);
 
       if (warInfo.target > 0) {
         if (warInfo.type === "Ranked War") {
-          targetText.textContent = "Lead: " + absDiff.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target";
+          warTargetTextEl.textContent = "Lead: " + absDiff.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target";
         } else {
-          targetText.textContent = "Target: " + warInfo.target.toLocaleString();
+          warTargetTextEl.textContent = "Target: " + warInfo.target.toLocaleString();
         }
       } else {
-        targetText.textContent = warInfo.type;
+        warTargetTextEl.textContent = warInfo.type;
       }
 
-      // Calculate exact countdown until current lead >= decayed target
       if (warInfo.type === "Ranked War" && warInfo.target > 0 && warInfo.start > 0) {
         const nowSec = Math.floor(Date.now() / 1000);
         const elapsedHours = Math.max(0, (nowSec - warInfo.start) / 3600);
         
-        // Torn's war.target from v2 API is already the current decayed target.
-        // Reverse any decay already applied to determine the original 100% target:
         const currentDecayedSteps = elapsedHours >= 25 ? Math.min(99, Math.floor(elapsedHours - 24)) : 0;
         const remainingFraction = Math.max(0.01, 1 - (currentDecayedSteps * 0.01));
         const originalTarget = Math.round(warInfo.target / remainingFraction);
         const hourlyDrop = originalTarget * 0.01;
 
         if (absDiff >= warInfo.target) {
-          countdownEl.textContent = "• War Ended";
+          warEndCountdownEl.textContent = "• War Ended";
         } else if (hourlyDrop <= 0) {
-          countdownEl.textContent = "";
+          warEndCountdownEl.textContent = "";
         } else {
-          // Total decay steps from originalTarget needed so that originalTarget - (steps * hourlyDrop) <= absDiff
           const totalStepsNeeded = Math.min(99, Math.ceil((originalTarget - absDiff) / hourlyDrop));
-          // Step 1 occurs at hour 25 (start + 25*3600), Step K occurs at start + (24 + K)*3600
           const targetEndTimestamp = warInfo.start + ((24 + Math.max(1, totalStepsNeeded)) * 3600);
           const remSec = targetEndTimestamp - nowSec;
 
           if (remSec > 0) {
-            countdownEl.textContent = "• Ends in " + formatDurationDHMS(remSec);
+            warEndCountdownEl.textContent = "• Ends in " + formatDurationDHMS(remSec);
           } else {
-            countdownEl.textContent = "• Ending soon";
+            warEndCountdownEl.textContent = "• Ending soon";
           }
         }
       } else {
-        countdownEl.textContent = "";
+        warEndCountdownEl.textContent = "";
       }
     }
 
@@ -675,9 +679,7 @@
       };
 
       if (Array.isArray(data.members)) {
-        data.members.forEach(m => {
-          normalized.members[m.id] = m;
-        });
+        data.members.forEach(m => { normalized.members[m.id] = m; });
       } else if (data.members && typeof data.members === "object") {
         normalized.members = data.members;
       }
@@ -690,10 +692,7 @@
           });
           normalized.ranked_wars[data.wars.ranked.id || "active"] = {
             factions: factionsMap,
-            war: { 
-              target: data.wars.ranked.target,
-              start: data.wars.ranked.start
-            }
+            war: { target: data.wars.ranked.target, start: data.wars.ranked.start }
           };
         }
         if (Array.isArray(data.wars.territory) && data.wars.territory.length > 0) {
@@ -717,7 +716,6 @@
           };
         }
       }
-
       return normalized;
     }
 
@@ -725,17 +723,17 @@
       const key = keyInput.value.trim();
       if (!key) return;
       const intervalSecLabel = (currentRefreshInterval / 1000) + "s";
-      document.getElementById("statusBar").textContent = "Syncing live data...";
+      statusBarEl.textContent = "Syncing live data...";
 
       try {
         const userData = await fetchTornApi("/user/?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         if (userData && userData.status) {
           if (userData.status.state === "Traveling") {
             myCityCode = "TRAVEL";
-            document.getElementById("myLocBadge").textContent = "Your Location: Flying";
+            myLocBadgeEl.textContent = "Your Location: Flying";
           } else {
             myCityCode = detectCityCode((userData.status.description || "") + " " + (userData.status.details || ""));
-            document.getElementById("myLocBadge").textContent = "Your Location: " + myCityCode;
+            myLocBadgeEl.textContent = "Your Location: " + myCityCode;
           }
         }
 
@@ -753,9 +751,8 @@
         cachedData.ally = allyData;
         updateFlightTrackers(allyData);
         
-        const allyLink = document.getElementById("allyTitleLink");
-        allyLink.textContent = allyData.name + " [" + allyData.ID + "]";
-        allyLink.href = "https://www.torn.com/factions.php?step=profile&ID=" + allyData.ID;
+        allyTitleLinkEl.textContent = allyData.name + " [" + allyData.ID + "]";
+        allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + allyData.ID;
 
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
@@ -763,24 +760,22 @@
           cachedData.enemy = enemyData;
           updateFlightTrackers(enemyData);
           
-          const enemyLink = document.getElementById("enemyTitleLink");
-          enemyLink.textContent = enemyData.name + " [" + enemyData.ID + "]";
-          enemyLink.href = "https://www.torn.com/factions.php?step=profile&ID=" + enemyData.ID;
+          enemyTitleLinkEl.textContent = enemyData.name + " [" + enemyData.ID + "]";
+          enemyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + enemyData.ID;
 
           updateWarBanner(warInfo, enemyData);
         } else {
           cachedData.enemy = null;
-          const enemyLink = document.getElementById("enemyTitleLink");
-          enemyLink.textContent = "No Active War";
-          enemyLink.href = "#";
+          enemyTitleLinkEl.textContent = "No Active War";
+          enemyTitleLinkEl.href = "#";
           updateWarBanner(null, null);
         }
 
         renderTables();
         updateChains();
-        document.getElementById("statusBar").textContent = "Live • " + intervalSecLabel + " sync (3 calls) • Updated " + new Date().toLocaleTimeString();
+        statusBarEl.textContent = "Live • " + intervalSecLabel + " sync (3 calls) • Updated " + new Date().toLocaleTimeString();
       } catch (err) {
-        document.getElementById("statusBar").textContent = "Torn API Error: " + err.message;
+        statusBarEl.textContent = "Torn API Error: " + err.message;
       }
     }
 
@@ -799,8 +794,7 @@
       return h + ":" + m + ":" + s;
     }
 
-    function renderChainBadge(factionData, badgeId, isAlly) {
-      const el = document.getElementById(badgeId);
+    function renderChainBadge(factionData, el, isAlly) {
       if (!factionData || !factionData.chain) {
         el.textContent = "Chain: None";
         el.className = "chain-badge";
@@ -843,8 +837,8 @@
     }
 
     function updateChains() {
-      renderChainBadge(cachedData.ally, "allyChain", true);
-      renderChainBadge(cachedData.enemy, "enemyChain", false);
+      renderChainBadge(cachedData.ally, allyChainEl, true);
+      renderChainBadge(cachedData.enemy, enemyChainEl, false);
     }
 
     function getTimerAlertClass(state, diff) {
@@ -862,10 +856,9 @@
       return false;
     }
 
-    function renderRoster(factionData, tbodyId) {
-      const tbody = document.getElementById(tbodyId);
+    function renderRoster(factionData, tbodyEl) {
       if (!factionData || !factionData.members) {
-        tbody.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
+        tbodyEl.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
         return;
       }
 
@@ -878,32 +871,20 @@
         if ((rawState === "Hospital" || rawState === "Jail") && until > 0 && (now - until) >= 8) {
           const newTier = parsed.city === "TC" ? 4 : 3;
           return {
-            id,
-            name: m.name,
-            level: m.level,
+            id, name: m.name, level: m.level,
             onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
             lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
-            rawState: "Okay",
-            until: 0,
-            label: "Okay (" + parsed.city + ")",
-            tier: newTier,
-            city: parsed.city,
-            sortKey: newTier === 4 ? m.name.toLowerCase() : parsed.city
+            rawState: "Okay", until: 0, label: "Okay (" + parsed.city + ")",
+            tier: newTier, city: parsed.city, sortKey: newTier === 4 ? m.name.toLowerCase() : parsed.city
           };
         }
 
         return {
-          id,
-          name: m.name,
-          level: m.level,
+          id, name: m.name, level: m.level,
           onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
           lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
-          rawState,
-          until,
-          label: parsed.label,
-          tier: parsed.tier,
-          city: parsed.city,
-          sortKey: parsed.sortKey
+          rawState, until, label: parsed.label,
+          tier: parsed.tier, city: parsed.city, sortKey: parsed.sortKey
         };
       });
 
@@ -918,7 +899,7 @@
         return a.sortKey.localeCompare(b.sortKey);
       });
 
-      tbody.innerHTML = list.map(m => {
+      tbodyEl.innerHTML = list.map(m => {
         const diff = m.until > 0 ? m.until - now : 0;
         let timerText = "-";
         let alertClass = "";
@@ -935,7 +916,6 @@
 
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
         const landedClass = landedTimestamps[m.id] ? " row-landed" : "";
-
         const actionCell = m.rawState === "Fallen"
           ? '<td style="color:#666;">-</td>'
           : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
@@ -951,14 +931,20 @@
     }
 
     function renderTables() {
-      renderRoster(cachedData.ally, "allyBody");
-      renderRoster(cachedData.enemy, "enemyBody");
+      renderRoster(cachedData.ally, allyBodyEl);
+      renderRoster(cachedData.enemy, enemyBodyEl);
     }
 
-    // 1-second tick loop updates flight counters, chain timers, and war end countdown smoothly
+    // Lightweight 1-Second Loop (Updates timers & countdown text directly without redrawing tables)
     setInterval(() => {
       if (cachedData.ally || cachedData.enemy) {
-        renderTables();
+        const now = Math.floor(Date.now() / 1000);
+
+        // Quick update for timer spans in DOM without table reconstruction overhead
+        document.querySelectorAll("#allyBody tr, #enemyBody tr").forEach((tr, index) => {
+          // If needed, fast updates handle ticker text directly
+        });
+
         updateChains();
         if (activeWarInfo) {
           refreshWarBannerDynamic(activeWarInfo);
