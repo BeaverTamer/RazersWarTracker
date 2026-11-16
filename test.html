@@ -196,7 +196,7 @@
     let activeWarInfo = null;
     let apiIntervalId = null;
 
-    // DOM Element Cache for High Efficiency
+    // DOM Element Cache
     const statusBarEl = document.getElementById("statusBar");
     const myLocBadgeEl = document.getElementById("myLocBadge");
     const warBannerEl = document.getElementById("warBanner");
@@ -263,7 +263,6 @@
       applyCollapseStates();
     }
 
-    // Persistent Flight Tracking with Memory Cleanup
     let flightStarts = {};
     let lastKnownStates = {};
     let landedTimestamps = {};
@@ -379,7 +378,6 @@
       }
     });
 
-    // Event Delegation for Faction Tabs
     const tabContainer = document.getElementById("factionTabs");
     OUR_FACTIONS.forEach(fac => {
       const btn = document.createElement("button");
@@ -935,16 +933,10 @@
       renderRoster(cachedData.enemy, enemyBodyEl);
     }
 
-    // Lightweight 1-Second Loop (Updates timers & countdown text directly without redrawing tables)
+    // Fully restored 1-second tick loop calling renderTables() so timers and countdowns increment smoothly
     setInterval(() => {
       if (cachedData.ally || cachedData.enemy) {
-        const now = Math.floor(Date.now() / 1000);
-
-        // Quick update for timer spans in DOM without table reconstruction overhead
-        document.querySelectorAll("#allyBody tr, #enemyBody tr").forEach((tr, index) => {
-          // If needed, fast updates handle ticker text directly
-        });
-
+        renderTables();
         updateChains();
         if (activeWarInfo) {
           refreshWarBannerDynamic(activeWarInfo);
