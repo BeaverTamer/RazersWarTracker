@@ -38,12 +38,17 @@
 
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; touch-action: pan-y; }
     @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
-    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; }
+    .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; contain: content; }
     .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
     .panel-header-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
-    .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
     .faction-title-link { color: #fff; text-decoration: none; }
     .faction-title-link:hover { text-decoration: underline; color: #90caf9; }
+    
+    .master-alarm-btn { background: #252525; border: 1px solid #383838; color: #aaa; cursor: pointer; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; }
+    .master-alarm-btn:hover { background: #333; color: #fff; }
+    .master-alarm-btn.alarm-active { background: rgba(253, 216, 53, 0.2); color: #fdd835; border-color: #fdd835; }
+
     .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
     .collapse-btn:hover { background: #333; color: #fff; }
     .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
@@ -67,6 +72,10 @@
     a.player-link { color: #fff; text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
     .last-act { color: #777; font-size: 0.72rem; flex-shrink: 0; }
+    .alarm-btn { background: none; border: none; cursor: pointer; padding: 0; font-size: 0.75rem; opacity: 0.3; transition: opacity 0.2s; flex-shrink: 0; }
+    .alarm-btn:hover { opacity: 0.7; }
+    .alarm-btn.alarm-active { opacity: 1; filter: drop-shadow(0 0 3px rgba(253, 216, 53, 0.6)); }
+
     .Okay { color: #66bb6a; }
     .Hospital { color: #ef5350; font-weight: 600; }
     .Jail { color: #ffa726; font-weight: 600; }
@@ -138,7 +147,10 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="allyCollapseBtn" onclick="togglePanel('ally')">[-]</button>
-          <h2><a id="allyTitleLink" class="faction-title-link" href="#" target="_blank">Razers</a></h2>
+          <h2>
+            <a id="allyTitleLink" class="faction-title-link" href="#" target="_blank">Razers</a>
+            <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
+          </h2>
         </div>
         <span class="chain-badge" id="allyChain">Chain: --</span>
       </div>
@@ -153,7 +165,10 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="enemyCollapseBtn" onclick="togglePanel('enemy')">[-]</button>
-          <h2><a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank">Warring Opponent</a></h2>
+          <h2>
+            <a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank">Warring Opponent</a>
+            <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
+          </h2>
         </div>
         <span class="chain-badge" id="enemyChain">Chain: --</span>
       </div>
@@ -195,6 +210,134 @@
     let cachedData = { ally: null, enemy: null };
     let activeWarInfo = null;
     let apiIntervalId = null;
+
+    let liveCountdownNodes = [];
+    let liveFlightNodes = [];
+    const triggeredAlarms = new Set();
+
+    let activeAlarms = {};
+    try {
+      activeAlarms = JSON.parse(localStorage.getItem("razers_alarms") || "{}");
+    } catch(e) { activeAlarms = {}; }
+
+    function toggleAlarm(id, btn) {
+      activeAlarms[id] = !activeAlarms[id];
+      localStorage.setItem("razers_alarms", JSON.stringify(activeAlarms));
+      btn.classList.toggle("alarm-active", activeAlarms[id]);
+      btn.textContent = activeAlarms[id] ? "🔔" : "🔕";
+      updateMasterButtonStates();
+    }
+
+    function toggleFactionMasterAlarm(type) {
+      const factionData = type === 'ally' ? cachedData.ally : cachedData.enemy;
+      if (!factionData || !factionData.members) return;
+
+      // Check if all currently loaded members in this faction are currently active
+      const members = factionData.members;
+      const allActive = members.every(m => activeAlarms[m.id]);
+
+      // If all are active, turn them all off. Otherwise, turn them all on.
+      const newState = !allActive;
+      members.forEach(m => {
+        activeAlarms[m.id] = newState;
+      });
+
+      localStorage.setItem("razers_alarms", JSON.stringify(activeAlarms));
+      renderTables();
+    }
+
+    function updateMasterButtonStates() {
+      // Ally Master Button State
+      if (cachedData.ally && cachedData.ally.members && cachedData.ally.members.length > 0) {
+        const allAllyActive = cachedData.ally.members.every(m => activeAlarms[m.id]);
+        const someAllyActive = cachedData.ally.members.some(m => activeAlarms[m.id]);
+        const btn = document.getElementById("allyMasterBtn");
+        btn.classList.toggle("alarm-active", allAllyActive || someAllyActive);
+        btn.textContent = allAllyActive ? "🔔 All On" : (someAllyActive ? "🔔 Some" : "🔕 All Off");
+      }
+
+      // Enemy Master Button State
+      if (cachedData.enemy && cachedData.enemy.members && cachedData.enemy.members.length > 0) {
+        const allEnemyActive = cachedData.enemy.members.every(m => activeAlarms[m.id]);
+        const someEnemyActive = cachedData.enemy.members.some(m => activeAlarms[m.id]);
+        const btn = document.getElementById("enemyMasterBtn");
+        btn.classList.toggle("alarm-active", allEnemyActive || someEnemyActive);
+        btn.textContent = allEnemyActive ? "🔔 All On" : (someEnemyActive ? "🔔 Some" : "🔕 All Off");
+      }
+    }
+
+    // 1. Ally Sound: Smooth double-chime (Ding-Dong)
+    function playAllyChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
+        gain1.gain.setValueAtTime(0.28, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.3);
+
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(523.25, audioCtx.currentTime + 0.18); // C5
+        gain2.gain.setValueAtTime(0.28, audioCtx.currentTime + 0.18);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(audioCtx.currentTime + 0.18);
+        osc2.stop(audioCtx.currentTime + 0.5);
+      } catch(e) {}
+    }
+
+    // 2. Enemy Sound: Distinct, abrasive low buzzing alarm (Sawtooth wave profile)
+    function playEnemyAlarmSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = "sawtooth";
+        osc1.frequency.setValueAtTime(110, audioCtx.currentTime); // A2 (Low harsh buzz)
+        gain1.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.18);
+
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "sawtooth";
+        osc2.frequency.setValueAtTime(164.81, audioCtx.currentTime + 0.2); // E3
+        gain2.gain.setValueAtTime(0.25, audioCtx.currentTime + 0.2);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.38);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(audioCtx.currentTime + 0.2);
+        osc2.stop(audioCtx.currentTime + 0.38);
+      } catch(e) {}
+    }
+
+    // Repeats the appropriate sound for 5 seconds (5 rings total)
+    function playSustainedAlarm(isAlly) {
+      const soundFunc = isAlly ? playAllyChime : playEnemyAlarmSound;
+      soundFunc();
+      let count = 1;
+      const interval = setInterval(() => {
+        if (count >= 5) {
+          clearInterval(interval);
+          return;
+        }
+        soundFunc();
+        count++;
+      }, 1000);
+    }
 
     // DOM Element Cache
     const statusBarEl = document.getElementById("statusBar");
@@ -285,19 +428,26 @@
       } catch (e) {}
     }
 
-    function updateFlightTrackers(factionData) {
+    function updateFlightTrackers(factionData, isAlly) {
       if (!factionData || !factionData.members) return;
-      const now = Math.floor(Date.now() / 1000);
+      const now = (Date.now() / 1000) | 0;
       let changed = false;
 
-      for (const [id, m] of Object.entries(factionData.members)) {
-        const state = (m.status && m.status.state) ? m.status.state : "Okay";
-        const prevState = lastKnownStates[id];
+      for (const uid in flightStarts) {
+        if ((now - flightStarts[uid].start) >= 28800) {
+          delete flightStarts[uid];
+          changed = true;
+        }
+      }
+
+      for (let i = 0; i < factionData.members.length; i++) {
+        const m = factionData.members[i];
+        const id = m.id;
+        const state = m.rawState;
+        const prevState = lastKnownStates[id + (isAlly ? "_ally" : "_enemy")];
 
         if (state === "Traveling") {
-          const parsed = parseMemberStatus(m);
-          const route = parsed.label;
-
+          const route = m.label;
           if (!flightStarts[id] || flightStarts[id].route !== route) {
             const wasOnGround = Boolean(prevState && prevState !== "Traveling");
             flightStarts[id] = { start: now, route: route, exact: wasOnGround };
@@ -306,6 +456,9 @@
         } else {
           if (prevState === "Traveling" && flightStarts[id]) {
             landedTimestamps[id] = now;
+            if (activeAlarms[id]) {
+              playSustainedAlarm(isAlly);
+            }
             setTimeout(() => {
               delete landedTimestamps[id];
               renderTables();
@@ -316,18 +469,19 @@
             changed = true;
           }
         }
-        lastKnownStates[id] = state;
+        lastKnownStates[id + (isAlly ? "_ally" : "_enemy")] = state;
       }
       if (changed) saveFlightStarts();
     }
 
     function formatElapsedFlight(sec) {
       if (sec < 0) sec = 0;
-      const h = Math.floor(sec / 3600);
-      const m = Math.floor((sec % 3600) / 60);
+      const h = (sec / 3600) | 0;
+      const m = ((sec % 3600) / 60) | 0;
       const s = sec % 60;
-      if (h > 0) return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-      return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      const mm = m < 10 ? "0" + m : "" + m;
+      const ss = s < 10 ? "0" + s : "" + s;
+      return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
     }
 
     function saveApiKey(val) {
@@ -394,6 +548,7 @@
     function switchTab(id) {
       selectedFactionId = Number(id);
       sessionStorage.setItem("razers_tab", String(selectedFactionId));
+      lastKnownStates = {};
       updateActiveTab();
       fetchAllData();
     }
@@ -404,7 +559,7 @@
       });
       const current = OUR_FACTIONS.find(f => f.id === selectedFactionId);
       if (current) {
-        allyTitleLinkEl.textContent = current.name + " [" + current.id + "]";
+        allyTitleLinkEl.textContent = current.name;
         allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + current.id;
       }
     }
@@ -451,9 +606,10 @@
     function detectCityCode(text) {
       if (!text) return "TC";
       const low = text.toLowerCase();
-      for (const entry of CITY_CODES) {
-        for (const k of entry.keys) {
-          if (low.includes(k)) return entry.code;
+      for (let i = 0; i < CITY_CODES.length; i++) {
+        const entry = CITY_CODES[i];
+        for (let j = 0; j < entry.keys.length; j++) {
+          if (low.indexOf(entry.keys[j]) !== -1) return entry.code;
         }
       }
       return "TC";
@@ -477,15 +633,15 @@
       if (state === "Traveling") {
         const low = combined.toLowerCase();
         let route = "TC > ?";
-        if (low.includes("returning to torn from")) {
+        if (low.indexOf("returning to torn from") !== -1) {
           const fromCity = detectCityCode(low.split("from").pop());
           route = fromCity + " > TC";
-        } else if (low.includes("traveling to")) {
+        } else if (low.indexOf("traveling to") !== -1) {
           const toCity = detectCityCode(low.split("to").pop());
           route = "TC > " + toCity;
         } else {
           const otherCity = detectCityCode(low.replace("torn", ""));
-          route = low.includes("to torn") ? otherCity + " > TC" : "TC > " + otherCity;
+          route = low.indexOf("to torn") !== -1 ? otherCity + " > TC" : "TC > " + otherCity;
         }
         return { label: route, tier: 2, city: "TRAVEL", sortKey: route };
       }
@@ -612,11 +768,14 @@
 
     function formatDurationDHMS(totalSec) {
       if (totalSec <= 0) return "00:00:00";
-      const d = Math.floor(totalSec / 86400);
-      const h = Math.floor((totalSec % 86400) / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
+      const d = (totalSec / 86400) | 0;
+      const h = ((totalSec % 86400) / 3600) | 0;
+      const m = ((totalSec % 3600) / 60) | 0;
       const s = totalSec % 60;
-      const hms = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      const hh = h < 10 ? "0" + h : "" + h;
+      const mm = m < 10 ? "0" + m : "" + m;
+      const ss = s < 10 ? "0" + s : "" + s;
+      const hms = hh + ":" + mm + ":" + ss;
       return d > 0 ? d + "d " + hms : hms;
     }
 
@@ -635,7 +794,7 @@
       }
 
       if (warInfo.type === "Ranked War" && warInfo.target > 0 && warInfo.start > 0) {
-        const nowSec = Math.floor(Date.now() / 1000);
+        const nowSec = (Date.now() / 1000) | 0;
         const elapsedHours = Math.max(0, (nowSec - warInfo.start) / 3600);
         
         const currentDecayedSteps = elapsedHours >= 25 ? Math.min(99, Math.floor(elapsedHours - 24)) : 0;
@@ -670,16 +829,32 @@
         ID: basic.id || basic.ID || id,
         name: basic.name || "Faction",
         chain: data.chain || null,
-        members: {},
+        members: [],
         ranked_wars: {},
         territory_wars: {},
         raid_wars: {}
       };
 
-      if (Array.isArray(data.members)) {
-        data.members.forEach(m => { normalized.members[m.id] = m; });
-      } else if (data.members && typeof data.members === "object") {
-        normalized.members = data.members;
+      const rawMembers = Array.isArray(data.members)
+        ? data.members
+        : (data.members && typeof data.members === "object" ? Object.entries(data.members).map(([k, v]) => ({ ...v, id: v.id || k })) : []);
+
+      for (let i = 0; i < rawMembers.length; i++) {
+        const m = rawMembers[i];
+        const parsed = parseMemberStatus(m);
+        normalized.members.push({
+          id: String(m.id),
+          name: m.name,
+          level: m.level,
+          onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
+          lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
+          rawState: (m.status && m.status.state) ? m.status.state : "Okay",
+          until: (m.status && m.status.until) ? Number(m.status.until) : 0,
+          label: parsed.label,
+          tier: parsed.tier,
+          city: parsed.city,
+          sortKey: parsed.sortKey
+        });
       }
 
       if (data.wars) {
@@ -747,18 +922,18 @@
 
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
-        updateFlightTrackers(allyData);
+        updateFlightTrackers(allyData, true);
         
-        allyTitleLinkEl.textContent = allyData.name + " [" + allyData.ID + "]";
+        allyTitleLinkEl.textContent = allyData.name;
         allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + allyData.ID;
 
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
-          updateFlightTrackers(enemyData);
+          updateFlightTrackers(enemyData, false);
           
-          enemyTitleLinkEl.textContent = enemyData.name + " [" + enemyData.ID + "]";
+          enemyTitleLinkEl.textContent = enemyData.name;
           enemyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + enemyData.ID;
 
           updateWarBanner(warInfo, enemyData);
@@ -771,6 +946,7 @@
 
         renderTables();
         updateChains();
+        updateMasterButtonStates();
         statusBarEl.textContent = "Live • " + intervalSecLabel + " sync (3 calls) • Updated " + new Date().toLocaleTimeString();
       } catch (err) {
         statusBarEl.textContent = "Torn API Error: " + err.message;
@@ -779,17 +955,17 @@
 
     function formatMMSS(sec) {
       if (sec <= 0) return "00:00";
-      const m = String(Math.floor(sec / 60)).padStart(2, "0");
-      const s = String(sec % 60).padStart(2, "0");
-      return m + ":" + s;
+      const m = (sec / 60) | 0;
+      const s = sec % 60;
+      return (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
     }
 
     function formatHHMMSS(sec) {
       if (sec <= 0) return "00:00:00";
-      const h = String(Math.floor(sec / 3600)).padStart(2, "0");
-      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
-      const s = String(sec % 60).padStart(2, "0");
-      return h + ":" + m + ":" + s;
+      const h = (sec / 3600) | 0;
+      const m = ((sec % 3600) / 60) | 0;
+      const s = sec % 60;
+      return (h < 10 ? "0" + h : "" + h) + ":" + (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
     }
 
     function renderChainBadge(factionData, el, isAlly) {
@@ -799,7 +975,7 @@
         return;
       }
       const c = factionData.chain;
-      const now = Math.floor(Date.now() / 1000);
+      const now = (Date.now() / 1000) | 0;
 
       if (c.cooldown > 0) {
         const cdRem = c.cooldown - now;
@@ -854,36 +1030,26 @@
       return false;
     }
 
-    function renderRoster(factionData, tbodyEl) {
+    function renderRoster(factionData, tbodyEl, isAlly) {
       if (!factionData || !factionData.members) {
         tbodyEl.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
         return;
       }
 
-      const now = Math.floor(Date.now() / 1000);
-      const list = Object.entries(factionData.members).map(([id, m]) => {
-        const until = (m.status && m.status.until) ? Number(m.status.until) : 0;
-        const rawState = (m.status && m.status.state) ? m.status.state : "Okay";
-        const parsed = parseMemberStatus(m);
-
-        if ((rawState === "Hospital" || rawState === "Jail") && until > 0 && (now - until) >= 8) {
-          const newTier = parsed.city === "TC" ? 4 : 3;
+      const now = (Date.now() / 1000) | 0;
+      const list = factionData.members.map(m => {
+        if ((m.rawState === "Hospital" || m.rawState === "Jail") && m.until > 0 && (now - m.until) >= 8) {
+          const newTier = m.city === "TC" ? 4 : 3;
           return {
-            id, name: m.name, level: m.level,
-            onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
-            lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
-            rawState: "Okay", until: 0, label: "Okay (" + parsed.city + ")",
-            tier: newTier, city: parsed.city, sortKey: newTier === 4 ? m.name.toLowerCase() : parsed.city
+            ...m,
+            rawState: "Okay",
+            until: 0,
+            label: "Okay (" + m.city + ")",
+            tier: newTier,
+            sortKey: newTier === 4 ? m.name.toLowerCase() : m.city
           };
         }
-
-        return {
-          id, name: m.name, level: m.level,
-          onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
-          lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
-          rawState, until, label: parsed.label,
-          tier: parsed.tier, city: parsed.city, sortKey: parsed.sortKey
-        };
+        return m;
       });
 
       list.sort((a, b) => {
@@ -901,15 +1067,19 @@
         const diff = m.until > 0 ? m.until - now : 0;
         let timerText = "-";
         let alertClass = "";
+        let dataAttrs = "";
 
         if (m.rawState === "Traveling" && flightStarts[m.id]) {
-          const elapsed = Math.max(0, now - flightStarts[m.id].start);
-          const prefix = flightStarts[m.id].exact ? "+" : "~+";
+          const fInfo = flightStarts[m.id];
+          const elapsed = Math.max(0, now - fInfo.start);
+          const prefix = fInfo.exact ? "+" : "~+";
           timerText = prefix + formatElapsedFlight(elapsed);
           alertClass = "timer-flight";
+          dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '" data-id="' + m.id + '" data-ally="' + (isAlly ? "1" : "0") + '"';
         } else if (m.until > 0) {
           timerText = formatHHMMSS(diff);
           alertClass = getTimerAlertClass(m.rawState, diff);
+          dataAttrs = ' data-until="' + m.until + '" data-state="' + m.rawState + '" data-city="' + m.city + '" data-id="' + m.id + '" data-ally="' + (isAlly ? "1" : "0") + '"';
         }
 
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
@@ -918,31 +1088,98 @@
           ? '<td style="color:#666;">-</td>'
           : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
+        const isAlarmOn = activeAlarms[m.id];
+        const alarmClass = isAlarmOn ? "alarm-btn alarm-active" : "alarm-btn";
+        const alarmSymbol = isAlarmOn ? "🔔" : "🔕";
+
         return '<tr class="' + landedClass + '">' +
-          '<td><div class="player-cell"><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
+          '<td><div class="player-cell"><button class="' + alarmClass + '" onclick="toggleAlarm(\'' + m.id + '\', this)" title="Toggle Audio Alert">' + alarmSymbol + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
           '<td>' + m.level + '</td>' +
           '<td class="' + m.rawState + '">' + m.label + '</td>' +
-          '<td><span class="timer ' + alertClass + '">' + timerText + '</span></td>' +
+          '<td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span></td>' +
           actionCell +
         '</tr>';
       }).join("");
     }
 
     function renderTables() {
-      renderRoster(cachedData.ally, allyBodyEl);
-      renderRoster(cachedData.enemy, enemyBodyEl);
+      renderRoster(cachedData.ally, allyBodyEl, true);
+      renderRoster(cachedData.enemy, enemyBodyEl, false);
+      liveCountdownNodes = Array.from(document.querySelectorAll(".timer[data-until]"));
+      liveFlightNodes = Array.from(document.querySelectorAll(".timer[data-flight-start]"));
+      updateMasterButtonStates();
     }
 
-    // Fully restored 1-second tick loop calling renderTables() so timers and countdowns increment smoothly
-    setInterval(() => {
-      if (cachedData.ally || cachedData.enemy) {
+    // Zero-allocation 1-second timer tick loop with drift-proof <= 15s checks
+    function tickTimers() {
+      if (document.hidden) return;
+      const now = (Date.now() / 1000) | 0;
+      let needsFullResort = false;
+
+      for (let i = 0; i < liveFlightNodes.length; i++) {
+        const el = liveFlightNodes[i];
+        const start = Number(el.dataset.flightStart);
+        el.textContent = el.dataset.flightPrefix + formatElapsedFlight(now - start);
+      }
+
+      for (let i = 0; i < liveCountdownNodes.length; i++) {
+        const el = liveCountdownNodes[i];
+        const until = Number(el.dataset.until);
+        const playerId = el.dataset.id;
+        const state = el.dataset.state;
+        const isAlly = el.dataset.ally === "1";
+        const diff = until - now;
+
+        // Drift-proof check: fires once per hospital stay when entering the <= 15s window
+        if ((state === "Hospital" || state === "Jail") && diff <= 15 && diff > 0 && activeAlarms[playerId]) {
+          const stayKey = playerId + "_" + until;
+          if (!triggeredAlarms.has(stayKey)) {
+            triggeredAlarms.add(stayKey);
+            playSustainedAlarm(isAlly);
+          }
+        }
+
+        if (diff <= -8) {
+          needsFullResort = true;
+          break;
+        }
+
+        el.textContent = formatHHMMSS(diff);
+
+        if (diff <= 0) {
+          el.className = "timer ";
+        } else if (diff <= 120) {
+          el.className = "timer timer-red-fast";
+        } else if (diff <= 300) {
+          el.className = "timer timer-yellow-slow";
+        } else if (diff <= 600) {
+          el.className = "timer timer-yellow-solid";
+        }
+
+        if (diff <= 20 && diff > 0) {
+          const atkBtn = el.parentElement.nextElementSibling && el.parentElement.nextElementSibling.firstElementChild;
+          if (atkBtn && !atkBtn.classList.contains("atk-ready") && isAttackReady(state, diff, el.dataset.city)) {
+            atkBtn.classList.add("atk-ready");
+          }
+        }
+      }
+
+      if (needsFullResort) {
         renderTables();
+      }
+
+      if (cachedData.ally || cachedData.enemy) {
         updateChains();
         if (activeWarInfo) {
           refreshWarBannerDynamic(activeWarInfo);
         }
       }
-    }, 1000);
+    }
+
+    setInterval(tickTimers, 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) tickTimers();
+    });
 
     setupApiInterval();
     applyCollapseStates();
