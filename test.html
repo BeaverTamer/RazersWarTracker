@@ -67,6 +67,10 @@
     a.player-link { color: #fff; text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
     .last-act { color: #777; font-size: 0.72rem; flex-shrink: 0; }
+    .alarm-btn { background: none; border: none; cursor: pointer; padding: 0; font-size: 0.75rem; opacity: 0.3; transition: opacity 0.2s; flex-shrink: 0; }
+    .alarm-btn:hover { opacity: 0.7; }
+    .alarm-btn.alarm-active { opacity: 1; filter: drop-shadow(0 0 3px rgba(253, 216, 53, 0.6)); }
+
     .Okay { color: #66bb6a; }
     .Hospital { color: #ef5350; font-weight: 600; }
     .Jail { color: #ffa726; font-weight: 600; }
@@ -196,9 +200,39 @@
     let activeWarInfo = null;
     let apiIntervalId = null;
 
-    // Direct references to live timer DOM nodes to eliminate innerHTML rebuilds
     let liveCountdownNodes = [];
     let liveFlightNodes = [];
+
+    // Persistent Alarms Storage
+    let activeAlarms = {};
+    try {
+      activeAlarms = JSON.parse(localStorage.getItem("razers_alarms") || "{}");
+    } catch(e) { activeAlarms = {}; }
+
+    function toggleAlarm(id, btn) {
+      activeAlarms[id] = !activeAlarms[id];
+      localStorage.setItem("razers_alarms", JSON.stringify(activeAlarms));
+      btn.classList.toggle("alarm-active", activeAlarms[id]);
+      btn.textContent = activeAlarms[id] ? "🔔" : "🔕";
+    }
+
+    // Native Web Audio Chime Generator
+    function playChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.45);
+      } catch(e) {}
+    }
 
     // DOM Element Cache
     const statusBarEl = document.getElementById("statusBar");
@@ -291,10 +325,9 @@
 
     function updateFlightTrackers(factionData) {
       if (!factionData || !factionData.members) return;
-      const now = Math.floor(Date.now() / 1000);
+      const now = (Date.now() / 1000) | 0;
       let changed = false;
 
-      // Prune stale flight entries > 8 hours old
       for (const uid in flightStarts) {
         if ((now - flightStarts[uid].start) >= 28800) {
           delete flightStarts[uid];
@@ -318,6 +351,10 @@
         } else {
           if (prevState === "Traveling" && flightStarts[id]) {
             landedTimestamps[id] = now;
+            // Trigger alarm chime if user set alarm for this player
+            if (activeAlarms[id]) {
+              playChime();
+            }
             setTimeout(() => {
               delete landedTimestamps[id];
               renderTables();
@@ -681,7 +718,6 @@
       }
     }
 
-    // Lean projection: discards excess API payload fields immediately to save RAM
     async function loadFactionCombined(id, key) {
       const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
       const basic = data.basic || data;
@@ -938,7 +974,7 @@
         } else if (m.until > 0) {
           timerText = formatHHMMSS(diff);
           alertClass = getTimerAlertClass(m.rawState, diff);
-          dataAttrs = ' data-until="' + m.until + '" data-state="' + m.rawState + '" data-city="' + m.city + '"';
+          dataAttrs = ' data-until="' + m.until + '" data-state="' + m.rawState + '" data-city="' + m.city + '" data-id="' + m.id + '"';
         }
 
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
@@ -947,8 +983,12 @@
           ? '<td style="color:#666;">-</td>'
           : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
+        const isAlarmOn = activeAlarms[m.id];
+        const alarmClass = isAlarmOn ? "alarm-btn alarm-active" : "alarm-btn";
+        const alarmSymbol = isAlarmOn ? "🔔" : "🔕";
+
         return '<tr class="' + landedClass + '">' +
-          '<td><div class="player-cell"><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
+          '<td><div class="player-cell"><button class="' + alarmClass + '" onclick="toggleAlarm(\'' + m.id + '\', this)" title="Toggle Audio Alert">' + alarmSymbol + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
           '<td>' + m.level + '</td>' +
           '<td class="' + m.rawState + '">' + m.label + '</td>' +
           '<td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span></td>' +
@@ -960,12 +1000,11 @@
     function renderTables() {
       renderRoster(cachedData.ally, allyBodyEl);
       renderRoster(cachedData.enemy, enemyBodyEl);
-      // Cache live timer spans so 1-second loop updates textContent without rebuilding DOM
       liveCountdownNodes = Array.from(document.querySelectorAll(".timer[data-until]"));
       liveFlightNodes = Array.from(document.querySelectorAll(".timer[data-flight-start]"));
     }
 
-    // Zero-allocation 1-second timer tick loop
+    // Zero-allocation 1-second timer tick loop with audio trigger
     function tickTimers() {
       if (document.hidden) return;
       const now = (Date.now() / 1000) | 0;
@@ -980,7 +1019,12 @@
       for (let i = 0; i < liveCountdownNodes.length; i++) {
         const el = liveCountdownNodes[i];
         const until = Number(el.dataset.until);
+        const playerId = el.dataset.id;
         const diff = until - now;
+
+        if (diff === 0 && activeAlarms[playerId]) {
+          playChime();
+        }
 
         if (diff <= -8) {
           needsFullResort = true;
@@ -989,7 +1033,6 @@
 
         el.textContent = formatHHMMSS(diff);
 
-        // Update threshold classes only when crossing alert boundaries
         if (diff === 600 || diff === 300 || diff === 120 || diff <= 0) {
           el.className = "timer " + getTimerAlertClass(el.dataset.state, diff);
         }
