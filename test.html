@@ -215,35 +215,47 @@
       btn.textContent = activeAlarms[id] ? "🔔" : "🔕";
     }
 
-    // Double-Ring Chime Generator (Higher volume, two-tone ding-dong sequence)
-    function playDoubleChime() {
+    // Single Double-Chime instance
+    function playSingleDoubleChime() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // First tone (Ding)
         const osc1 = audioCtx.createOscillator();
         const gain1 = audioCtx.createGain();
         osc1.type = "sine";
         osc1.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
-        gain1.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain1.gain.setValueAtTime(0.28, audioCtx.currentTime);
         gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
         osc1.connect(gain1);
         gain1.connect(audioCtx.destination);
         osc1.start(audioCtx.currentTime);
         osc1.stop(audioCtx.currentTime + 0.3);
 
-        // Second tone (Dong - slightly lower pitch, delayed by 180ms)
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
         osc2.type = "sine";
         osc2.frequency.setValueAtTime(523.25, audioCtx.currentTime + 0.18); // C5
-        gain2.gain.setValueAtTime(0.25, audioCtx.currentTime + 0.18);
+        gain2.gain.setValueAtTime(0.28, audioCtx.currentTime + 0.18);
         gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
         osc2.connect(gain2);
         gain2.connect(audioCtx.destination);
         osc2.start(audioCtx.currentTime + 0.18);
         osc2.stop(audioCtx.currentTime + 0.5);
       } catch(e) {}
+    }
+
+    // Repeats the double chime once every second for 5 seconds (5 rings total)
+    function playSustainedAlarm() {
+      playSingleDoubleChime();
+      let count = 1;
+      const interval = setInterval(() => {
+        if (count >= 5) {
+          clearInterval(interval);
+          return;
+        }
+        playSingleDoubleChime();
+        count++;
+      }, 1000);
     }
 
     // DOM Element Cache
@@ -363,8 +375,9 @@
         } else {
           if (prevState === "Traveling" && flightStarts[id]) {
             landedTimestamps[id] = now;
+            // Trigger 5-second sustained alarm if user set bell alarm for this player
             if (activeAlarms[id]) {
-              playDoubleChime();
+              playSustainedAlarm();
             }
             setTimeout(() => {
               delete landedTimestamps[id];
@@ -981,7 +994,7 @@
           const prefix = fInfo.exact ? "+" : "~+";
           timerText = prefix + formatElapsedFlight(elapsed);
           alertClass = "timer-flight";
-          dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '"';
+          dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '" data-id="' + m.id + '"';
         } else if (m.until > 0) {
           timerText = formatHHMMSS(diff);
           alertClass = getTimerAlertClass(m.rawState, diff);
@@ -1015,7 +1028,7 @@
       liveFlightNodes = Array.from(document.querySelectorAll(".timer[data-flight-start]"));
     }
 
-    // Zero-allocation 1-second timer tick loop with 15-sec early audio trigger
+    // Zero-allocation 1-second timer tick loop with 5-second sustained alarm triggers
     function tickTimers() {
       if (document.hidden) return;
       const now = (Date.now() / 1000) | 0;
@@ -1033,9 +1046,9 @@
         const playerId = el.dataset.id;
         const diff = until - now;
 
-        // Trigger double chime exactly at 15 seconds remaining
+        // Trigger 5-second sustained alarm exactly at 15 seconds remaining
         if (diff === 15 && activeAlarms[playerId]) {
-          playDoubleChime();
+          playSustainedAlarm();
         }
 
         if (diff <= -8) {
