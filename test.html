@@ -203,7 +203,6 @@
     let liveCountdownNodes = [];
     let liveFlightNodes = [];
 
-    // Persistent Alarms Storage
     let activeAlarms = {};
     try {
       activeAlarms = JSON.parse(localStorage.getItem("razers_alarms") || "{}");
@@ -216,21 +215,34 @@
       btn.textContent = activeAlarms[id] ? "🔔" : "🔕";
     }
 
-    // Native Web Audio Chime Generator
-    function playChime() {
+    // Double-Ring Chime Generator (Higher volume, two-tone ding-dong sequence)
+    function playDoubleChime() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
-        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.45);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.45);
+        
+        // First tone (Ding)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
+        gain1.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.3);
+
+        // Second tone (Dong - slightly lower pitch, delayed by 180ms)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(523.25, audioCtx.currentTime + 0.18); // C5
+        gain2.gain.setValueAtTime(0.25, audioCtx.currentTime + 0.18);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(audioCtx.currentTime + 0.18);
+        osc2.stop(audioCtx.currentTime + 0.5);
       } catch(e) {}
     }
 
@@ -351,9 +363,8 @@
         } else {
           if (prevState === "Traveling" && flightStarts[id]) {
             landedTimestamps[id] = now;
-            // Trigger alarm chime if user set alarm for this player
             if (activeAlarms[id]) {
-              playChime();
+              playDoubleChime();
             }
             setTimeout(() => {
               delete landedTimestamps[id];
@@ -1004,7 +1015,7 @@
       liveFlightNodes = Array.from(document.querySelectorAll(".timer[data-flight-start]"));
     }
 
-    // Zero-allocation 1-second timer tick loop with audio trigger
+    // Zero-allocation 1-second timer tick loop with 15-sec early audio trigger
     function tickTimers() {
       if (document.hidden) return;
       const now = (Date.now() / 1000) | 0;
@@ -1022,8 +1033,9 @@
         const playerId = el.dataset.id;
         const diff = until - now;
 
-        if (diff === 0 && activeAlarms[playerId]) {
-          playChime();
+        // Trigger double chime exactly at 15 seconds remaining
+        if (diff === 15 && activeAlarms[playerId]) {
+          playDoubleChime();
         }
 
         if (diff <= -8) {
