@@ -106,7 +106,8 @@
     #lockScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
     #lockScreen[hidden] { display: none !important; }
     .lock-card { width: min(440px, 100%); background: #181818; border: 1px solid #2a2a2a; border-radius: 8px; padding: 22px; }
-    .lock-card h1 { margin: 0 0 8px; font-size: 1.3rem; }
+    .lock-card h1 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 600; text-align: center; }
+    .lock-banner { display: block; width: 100%; height: auto; border-radius: 6px; margin-bottom: 14px; }
     .lock-card p { margin: 0; color: #aaa; font-size: 0.9rem; line-height: 1.45; }
     .lock-card input { width: 100%; margin: 14px 0; }
     .lock-actions { display: flex; gap: 8px; }
@@ -116,8 +117,8 @@
 <body>
   <div id="lockScreen">
     <form class="lock-card" id="lockForm">
-      <h1>Razers Alliance</h1>
-      <p>Paste your public Torn API key. Torn is asked which faction that player is in. Only Razers, HellRazers, OccamsRazers, and RazerResistance can open the board.</p>
+      <img class="lock-banner" src="https://factionimages.torn.com/95c82bf2-8c76-d78a-2804713.png" alt="Razers" />
+      <h1>Welcome Razers, please input a public key.</h1>
       <input id="lockKey" type="password" autocomplete="off" placeholder="Public Torn API key" />
       <div class="lock-actions">
         <button type="submit" class="load-btn">Unlock</button>
@@ -139,7 +140,6 @@
         <option value="300000">5m (0.6 calls/min)</option>
       </select>
       <button class="load-btn" onclick="manualLoad()">Load</button>
-      <button class="toggle-btn" id="lockOutBtn" type="button">Lock</button>
     </div>
   </div>
   <div class="sub-bar">
@@ -256,9 +256,7 @@
       const members = factionData.members;
       const allActive = members.every(m => activeAlarms[m.id]);
       const newState = !allActive;
-      members.forEach(m => {
-        activeAlarms[m.id] = newState;
-      });
+      members.forEach(m => { activeAlarms[m.id] = newState; });
       localStorage.setItem("razers_alarms", JSON.stringify(activeAlarms));
       renderTables();
     }
@@ -337,10 +335,7 @@
       soundFunc();
       let count = 1;
       const interval = setInterval(() => {
-        if (count >= 5) {
-          clearInterval(interval);
-          return;
-        }
+        if (count >= 5) { clearInterval(interval); return; }
         soundFunc();
         count++;
       }, 1000);
@@ -387,22 +382,12 @@
     function applyCollapseStates() {
       const allyPanel = document.getElementById("allyPanel");
       const allyBtn = document.getElementById("allyCollapseBtn");
-      if (collapsedState.ally) {
-        allyPanel.classList.add("collapsed");
-        allyBtn.textContent = "[+]";
-      } else {
-        allyPanel.classList.remove("collapsed");
-        allyBtn.textContent = "[-]";
-      }
+      if (collapsedState.ally) { allyPanel.classList.add("collapsed"); allyBtn.textContent = "[+]"; }
+      else { allyPanel.classList.remove("collapsed"); allyBtn.textContent = "[-]"; }
       const enemyPanel = document.getElementById("enemyPanel");
       const enemyBtn = document.getElementById("enemyCollapseBtn");
-      if (collapsedState.enemy) {
-        enemyPanel.classList.add("collapsed");
-        enemyBtn.textContent = "[+]";
-      } else {
-        enemyPanel.classList.remove("collapsed");
-        enemyBtn.textContent = "[-]";
-      }
+      if (collapsedState.enemy) { enemyPanel.classList.add("collapsed"); enemyBtn.textContent = "[+]"; }
+      else { enemyPanel.classList.remove("collapsed"); enemyBtn.textContent = "[-]"; }
     }
 
     function togglePanel(type) {
@@ -419,18 +404,12 @@
       const savedFlights = JSON.parse(localStorage.getItem("razers_flight_starts") || "{}");
       const nowSec = Math.floor(Date.now() / 1000);
       for (const [uid, info] of Object.entries(savedFlights)) {
-        if (info && info.start && (nowSec - info.start) < 28800) {
-          flightStarts[uid] = info;
-        }
+        if (info && info.start && (nowSec - info.start) < 28800) flightStarts[uid] = info;
       }
-    } catch (e) {
-      flightStarts = {};
-    }
+    } catch (e) { flightStarts = {}; }
 
     function saveFlightStarts() {
-      try {
-        localStorage.setItem("razers_flight_starts", JSON.stringify(flightStarts));
-      } catch (e) {}
+      try { localStorage.setItem("razers_flight_starts", JSON.stringify(flightStarts)); } catch (e) {}
     }
 
     function updateFlightTrackers(factionData, isAlly) {
@@ -438,10 +417,7 @@
       const now = (Date.now() / 1000) | 0;
       let changed = false;
       for (const uid in flightStarts) {
-        if ((now - flightStarts[uid].start) >= 28800) {
-          delete flightStarts[uid];
-          changed = true;
-        }
+        if ((now - flightStarts[uid].start) >= 28800) { delete flightStarts[uid]; changed = true; }
       }
       for (let i = 0; i < factionData.members.length; i++) {
         const m = factionData.members[i];
@@ -458,18 +434,10 @@
         } else {
           if (prevState === "Traveling" && flightStarts[id]) {
             landedTimestamps[id] = now;
-            if (activeAlarms[id]) {
-              playSustainedAlarm(isAlly);
-            }
-            setTimeout(() => {
-              delete landedTimestamps[id];
-              renderTables();
-            }, 5000);
+            if (activeAlarms[id]) playSustainedAlarm(isAlly);
+            setTimeout(() => { delete landedTimestamps[id]; renderTables(); }, 5000);
           }
-          if (flightStarts[id]) {
-            delete flightStarts[id];
-            changed = true;
-          }
+          if (flightStarts[id]) { delete flightStarts[id]; changed = true; }
         }
         lastKnownStates[id + (isAlly ? "_ally" : "_enemy")] = state;
       }
@@ -495,10 +463,7 @@
     function loadSavedApiKey() {
       const urlParams = new URLSearchParams(window.location.search);
       const urlKey = urlParams.get("key");
-      if (urlKey && urlKey.trim().length >= 16) {
-        saveApiKey(urlKey.trim());
-        return urlKey.trim();
-      }
+      if (urlKey && urlKey.trim().length >= 16) { saveApiKey(urlKey.trim()); return urlKey.trim(); }
       const lsKey = localStorage.getItem("torn_pub_key");
       if (lsKey) return lsKey;
       const match = document.cookie.match(/(?:^|;\s*)torn_pub_key=([^;]+)/);
@@ -507,13 +472,8 @@
 
     function toggleKeyVisibility() {
       const btn = document.getElementById("toggleKeyBtn");
-      if (keyInput.type === "password") {
-        keyInput.type = "text";
-        btn.textContent = "Hide";
-      } else {
-        keyInput.type = "password";
-        btn.textContent = "Show";
-      }
+      if (keyInput.type === "password") { keyInput.type = "text"; btn.textContent = "Hide"; }
+      else { keyInput.type = "password"; btn.textContent = "Show"; }
     }
 
     function manualLoad() {
@@ -526,10 +486,7 @@
     keyInput.addEventListener("input", () => {
       const val = keyInput.value.trim();
       saveApiKey(val);
-      if (val.length === 16) {
-        homeDetected = false;
-        fetchAllData();
-      }
+      if (val.length === 16) { homeDetected = false; fetchAllData(); }
     });
 
     const tabContainer = document.getElementById("factionTabs");
@@ -540,9 +497,7 @@
       tabContainer.appendChild(btn);
     });
     tabContainer.addEventListener("click", e => {
-      if (e.target.tagName === "BUTTON" && e.target.dataset.id) {
-        switchTab(Number(e.target.dataset.id));
-      }
+      if (e.target.tagName === "BUTTON" && e.target.dataset.id) switchTab(Number(e.target.dataset.id));
     });
 
     function switchTab(id) {
@@ -596,9 +551,7 @@
           const data = await res.json();
           if (data.error) throw new Error(data.error.error);
           return data;
-        } catch (err) {
-          lastErr = err;
-        }
+        } catch (err) { lastErr = err; }
       }
       throw lastErr || new Error("Network error");
     }
@@ -631,11 +584,9 @@
         const low = combined.toLowerCase();
         let route = "TC > ?";
         if (low.indexOf("returning to torn from") !== -1) {
-          const fromCity = detectCityCode(low.split("from").pop());
-          route = fromCity + " > TC";
+          route = detectCityCode(low.split("from").pop()) + " > TC";
         } else if (low.indexOf("traveling to") !== -1) {
-          const toCity = detectCityCode(low.split("to").pop());
-          route = "TC > " + toCity;
+          route = "TC > " + detectCityCode(low.split("to").pop());
         } else {
           const otherCity = detectCityCode(low.replace("torn", ""));
           route = low.indexOf("to torn") !== -1 ? otherCity + " > TC" : "TC > " + otherCity;
@@ -647,9 +598,7 @@
         return { label: "Okay (" + city + ")", tier: 3, city: city, sortKey: city };
       }
       const city = detectCityCode(combined);
-      if (city !== "TC") {
-        return { label: "Okay (" + city + ")", tier: 3, city: city, sortKey: city };
-      }
+      if (city !== "TC") return { label: "Okay (" + city + ")", tier: 3, city: city, sortKey: city };
       return { label: "Okay (TC)", tier: 4, city: "TC", sortKey: m.name.toLowerCase() };
     }
 
@@ -669,8 +618,6 @@
           if (oppId) {
             const myFac = war.factions[myId] || {};
             const oppFac = war.factions[oppId] || {};
-            const target = (war.war && war.war.target) ? Number(war.war.target) : 0;
-            const start = (war.war && war.war.start) ? Number(war.war.start) : 0;
             return {
               type: "Ranked War",
               oppId: oppId,
@@ -678,8 +625,8 @@
               allyScore: Number(myFac.score || 0),
               enemyName: oppFac.name || "Opponent",
               enemyScore: Number(oppFac.score || 0),
-              target: target,
-              start: start
+              target: (war.war && war.war.target) ? Number(war.war.target) : 0,
+              start: (war.war && war.war.start) ? Number(war.war.start) : 0
             };
           }
         }
@@ -690,14 +637,9 @@
           const oppId = isAssault ? Number(war.defending_faction) : Number(war.assaulting_faction);
           if (oppId) {
             return {
-              type: "Territory War",
-              oppId: oppId,
-              allyName: factionData.name || "Our Faction",
-              allyScore: Number(war.score || 0),
-              enemyName: "Opponent",
-              enemyScore: 0,
-              target: Number(war.required_score || 0),
-              start: 0
+              type: "Territory War", oppId: oppId,
+              allyName: factionData.name || "Our Faction", allyScore: Number(war.score || 0),
+              enemyName: "Opponent", enemyScore: 0, target: Number(war.required_score || 0), start: 0
             };
           }
         }
@@ -708,14 +650,12 @@
           const oppId = isRaider ? Number(war.defending_faction) : Number(war.raiding_faction);
           if (oppId) {
             return {
-              type: "Raid War",
-              oppId: oppId,
+              type: "Raid War", oppId: oppId,
               allyName: factionData.name || "Our Faction",
               allyScore: Number(isRaider ? war.raider_score : war.defender_score) || 0,
               enemyName: "Opponent",
               enemyScore: Number(isRaider ? war.defender_score : war.raider_score) || 0,
-              target: 0,
-              start: 0
+              target: 0, start: 0
             };
           }
         }
@@ -724,11 +664,7 @@
     }
 
     function updateWarBanner(warInfo, enemyFactionData) {
-      if (!warInfo) {
-        warBannerEl.style.display = "none";
-        activeWarInfo = null;
-        return;
-      }
+      if (!warInfo) { warBannerEl.style.display = "none"; activeWarInfo = null; return; }
       activeWarInfo = warInfo;
       const enemyName = (enemyFactionData && enemyFactionData.name) ? enemyFactionData.name : warInfo.enemyName;
       const aScore = warInfo.allyScore;
@@ -737,16 +673,9 @@
       const absDiff = Math.abs(diff);
       warAllyScoreEl.textContent = warInfo.allyName + ": " + aScore.toLocaleString();
       warEnemyScoreEl.textContent = eScore.toLocaleString() + " :" + enemyName;
-      if (diff > 0) {
-        warLeadBadgeEl.textContent = warInfo.allyName + " +" + absDiff.toLocaleString();
-        warLeadBadgeEl.className = "lead-badge lead-ally";
-      } else if (diff < 0) {
-        warLeadBadgeEl.textContent = enemyName + " +" + absDiff.toLocaleString();
-        warLeadBadgeEl.className = "lead-badge lead-enemy";
-      } else {
-        warLeadBadgeEl.textContent = "Tied (0)";
-        warLeadBadgeEl.className = "lead-badge";
-      }
+      if (diff > 0) { warLeadBadgeEl.textContent = warInfo.allyName + " +" + absDiff.toLocaleString(); warLeadBadgeEl.className = "lead-badge lead-ally"; }
+      else if (diff < 0) { warLeadBadgeEl.textContent = enemyName + " +" + absDiff.toLocaleString(); warLeadBadgeEl.className = "lead-badge lead-enemy"; }
+      else { warLeadBadgeEl.textContent = "Tied (0)"; warLeadBadgeEl.className = "lead-badge"; }
       refreshWarBannerDynamic(warInfo);
       const total = aScore + eScore;
       const allyPct = total > 0 ? Math.max(8, Math.min(92, (aScore / total) * 100)) : 50;
@@ -772,11 +701,9 @@
       if (!warInfo) return;
       const absDiff = Math.abs(warInfo.allyScore - warInfo.enemyScore);
       if (warInfo.target > 0) {
-        if (warInfo.type === "Ranked War") {
-          warTargetTextEl.textContent = "Lead: " + absDiff.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target";
-        } else {
-          warTargetTextEl.textContent = "Target: " + warInfo.target.toLocaleString();
-        }
+        warTargetTextEl.textContent = warInfo.type === "Ranked War"
+          ? "Lead: " + absDiff.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target"
+          : "Target: " + warInfo.target.toLocaleString();
       } else {
         warTargetTextEl.textContent = warInfo.type;
       }
@@ -787,19 +714,13 @@
         const remainingFraction = Math.max(0.01, 1 - (currentDecayedSteps * 0.01));
         const originalTarget = Math.round(warInfo.target / remainingFraction);
         const hourlyDrop = originalTarget * 0.01;
-        if (absDiff >= warInfo.target) {
-          warEndCountdownEl.textContent = "• War Ended";
-        } else if (hourlyDrop <= 0) {
-          warEndCountdownEl.textContent = "";
-        } else {
+        if (absDiff >= warInfo.target) warEndCountdownEl.textContent = "• War Ended";
+        else if (hourlyDrop <= 0) warEndCountdownEl.textContent = "";
+        else {
           const totalStepsNeeded = Math.min(99, Math.ceil((originalTarget - absDiff) / hourlyDrop));
           const targetEndTimestamp = warInfo.start + ((24 + Math.max(1, totalStepsNeeded)) * 3600);
           const remSec = targetEndTimestamp - nowSec;
-          if (remSec > 0) {
-            warEndCountdownEl.textContent = "• Ends in " + formatDurationDHMS(remSec);
-          } else {
-            warEndCountdownEl.textContent = "• Ending soon";
-          }
+          warEndCountdownEl.textContent = remSec > 0 ? "• Ends in " + formatDurationDHMS(remSec) : "• Ending soon";
         }
       } else {
         warEndCountdownEl.textContent = "";
@@ -809,66 +730,35 @@
     async function loadFactionCombined(id, key) {
       const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
       const basic = data.basic || data;
-      const normalized = {
-        ID: basic.id || basic.ID || id,
-        name: basic.name || "Faction",
-        chain: data.chain || null,
-        members: [],
-        ranked_wars: {},
-        territory_wars: {},
-        raid_wars: {}
-      };
-      const rawMembers = Array.isArray(data.members)
-        ? data.members
-        : (data.members && typeof data.members === "object" ? Object.entries(data.members).map(([k, v]) => ({ ...v, id: v.id || k })) : []);
+      const normalized = { ID: basic.id || basic.ID || id, name: basic.name || "Faction", chain: data.chain || null, members: [], ranked_wars: {}, territory_wars: {}, raid_wars: {} };
+      const rawMembers = Array.isArray(data.members) ? data.members : (data.members && typeof data.members === "object" ? Object.entries(data.members).map(([k, v]) => ({ ...v, id: v.id || k })) : []);
       for (let i = 0; i < rawMembers.length; i++) {
         const m = rawMembers[i];
         const parsed = parseMemberStatus(m);
         normalized.members.push({
-          id: String(m.id),
-          name: m.name,
-          level: m.level,
+          id: String(m.id), name: m.name, level: m.level,
           onlineState: (m.last_action && m.last_action.status) ? m.last_action.status : "Offline",
           lastAct: formatLastAction(m.last_action ? m.last_action.relative : ""),
           rawState: (m.status && m.status.state) ? m.status.state : "Okay",
           until: (m.status && m.status.until) ? Number(m.status.until) : 0,
-          label: parsed.label,
-          tier: parsed.tier,
-          city: parsed.city,
-          sortKey: parsed.sortKey
+          label: parsed.label, tier: parsed.tier, city: parsed.city, sortKey: parsed.sortKey
         });
       }
       if (data.wars) {
         if (data.wars.ranked && data.wars.ranked.factions) {
           const factionsMap = {};
-          data.wars.ranked.factions.forEach(f => {
-            factionsMap[f.id] = { name: f.name, score: f.score };
-          });
-          normalized.ranked_wars[data.wars.ranked.id || data.wars.ranked.war_id || "active"] = {
-            factions: factionsMap,
-            war: { target: data.wars.ranked.target, start: data.wars.ranked.start }
-          };
+          data.wars.ranked.factions.forEach(f => { factionsMap[f.id] = { name: f.name, score: f.score }; });
+          normalized.ranked_wars[data.wars.ranked.id || data.wars.ranked.war_id || "active"] = { factions: factionsMap, war: { target: data.wars.ranked.target, start: data.wars.ranked.start } };
         }
         if (Array.isArray(data.wars.territory) && data.wars.territory.length > 0) {
           const tw = data.wars.territory[0];
           if (tw && tw.factions && tw.factions.length >= 2) {
-            normalized.territory_wars[tw.id || "active"] = {
-              assaulting_faction: tw.factions[0].id,
-              defending_faction: tw.factions[1].id,
-              score: tw.factions[0].score,
-              required_score: tw.target
-            };
+            normalized.territory_wars[tw.id || "active"] = { assaulting_faction: tw.factions[0].id, defending_faction: tw.factions[1].id, score: tw.factions[0].score, required_score: tw.target };
           }
         }
         const raidWar = data.wars.raid || (Array.isArray(data.wars.raids) ? data.wars.raids[0] : null);
         if (raidWar && raidWar.factions && raidWar.factions.length >= 2) {
-          const rw = raidWar;
-          normalized.raid_wars[rw.id || "active"] = {
-            raiding_faction: rw.factions[0].id,
-            defending_faction: rw.factions[1].id,
-            raider_score: rw.factions[0].score,
-            defender_score: rw.factions[1].score
-          };
+          normalized.raid_wars[raidWar.id || "active"] = { raiding_faction: raidWar.factions[0].id, defending_faction: raidWar.factions[1].id, raider_score: raidWar.factions[0].score, defender_score: raidWar.factions[1].score };
         }
       }
       return normalized;
@@ -884,13 +774,8 @@
         const profile = userData.profile || {};
         const status = profile.status || userData.status || {};
         if (status && status.state) {
-          if (status.state === "Traveling") {
-            myCityCode = "TRAVEL";
-            myLocBadgeEl.textContent = "Your Location: Flying";
-          } else {
-            myCityCode = detectCityCode((status.description || "") + " " + (status.details || ""));
-            myLocBadgeEl.textContent = "Your Location: " + myCityCode;
-          }
+          if (status.state === "Traveling") { myCityCode = "TRAVEL"; myLocBadgeEl.textContent = "Your Location: Flying"; }
+          else { myCityCode = detectCityCode((status.description || "") + " " + (status.details || "")); myLocBadgeEl.textContent = "Your Location: " + myCityCode; }
         }
         const faction = userData.faction || {};
         const userFacId = Number(faction.id || faction.faction_id || profile.faction_id || 0);
@@ -908,9 +793,7 @@
           selectedFactionId = userFacId;
           sessionStorage.setItem("razers_tab", String(selectedFactionId));
           updateActiveTab();
-        } else if (userFacId) {
-          homeDetected = true;
-        }
+        } else if (userFacId) homeDetected = true;
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
         updateFlightTrackers(allyData, true);
@@ -955,42 +838,22 @@
     }
 
     function renderChainBadge(factionData, el, isAlly) {
-      if (!factionData || !factionData.chain) {
-        el.textContent = "Chain: None";
-        el.className = "chain-badge";
-        return;
-      }
+      if (!factionData || !factionData.chain) { el.textContent = "Chain: None"; el.className = "chain-badge"; return; }
       const c = factionData.chain;
       const now = (Date.now() / 1000) | 0;
       if (c.cooldown > 0) {
         const cdRem = c.cooldown - now;
-        if (cdRem > 0) {
-          el.textContent = "Chain: " + (c.current || 0) + " (CD " + formatMMSS(cdRem) + ")";
-          el.className = "chain-badge chain-cooldown";
-          return;
-        }
+        if (cdRem > 0) { el.textContent = "Chain: " + (c.current || 0) + " (CD " + formatMMSS(cdRem) + ")"; el.className = "chain-badge chain-cooldown"; return; }
       }
-      if (!c.current || c.current === 0) {
-        el.textContent = "Chain: None";
-        el.className = "chain-badge";
-        return;
-      }
+      if (!c.current || c.current === 0) { el.textContent = "Chain: None"; el.className = "chain-badge"; return; }
       const timeoutRem = c.timeout > 0 ? Math.max(0, c.end - now) : 0;
       if (timeoutRem > 0) {
         el.textContent = "Chain: " + c.current + "/" + (c.max || "?") + " (" + formatMMSS(timeoutRem) + ")";
-        if (isAlly && timeoutRem < 60) {
-          el.className = "chain-badge timer-red-fast";
-        } else if (isAlly && timeoutRem < 150) {
-          el.className = "chain-badge timer-yellow-slow";
-        } else if (!isAlly && timeoutRem <= 60) {
-          el.className = "chain-badge timer-red-fast";
-        } else {
-          el.className = "chain-badge chain-active";
-        }
-      } else {
-        el.textContent = "Chain: " + c.current;
-        el.className = "chain-badge";
-      }
+        if (isAlly && timeoutRem < 60) el.className = "chain-badge timer-red-fast";
+        else if (isAlly && timeoutRem < 150) el.className = "chain-badge timer-yellow-slow";
+        else if (!isAlly && timeoutRem <= 60) el.className = "chain-badge timer-red-fast";
+        else el.className = "chain-badge chain-active";
+      } else { el.textContent = "Chain: " + c.current; el.className = "chain-badge"; }
     }
 
     function updateChains() {
@@ -1022,14 +885,7 @@
       const list = factionData.members.map(m => {
         if ((m.rawState === "Hospital" || m.rawState === "Jail") && m.until > 0 && (now - m.until) >= 8) {
           const newTier = m.city === "TC" ? 4 : 3;
-          return {
-            ...m,
-            rawState: "Okay",
-            until: 0,
-            label: "Okay (" + m.city + ")",
-            tier: newTier,
-            sortKey: newTier === 4 ? m.name.toLowerCase() : m.city
-          };
+          return { ...m, rawState: "Okay", until: 0, label: "Okay (" + m.city + ")", tier: newTier, sortKey: newTier === 4 ? m.name.toLowerCase() : m.city };
         }
         return m;
       });
@@ -1051,7 +907,7 @@
         if (m.rawState === "Traveling" && flightStarts[m.id]) {
           const fInfo = flightStarts[m.id];
           const elapsed = Math.max(0, now - fInfo.start);
-          const prefix = fInfo.exact ? "+" : "~+";
+          const prefix = fInfo.exact ? "+" : "\~+";
           timerText = prefix + formatElapsedFlight(elapsed);
           alertClass = "timer-flight";
           dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '" data-id="' + m.id + '" data-ally="' + (isAlly ? "1" : "0") + '"';
@@ -1062,19 +918,11 @@
         }
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
         const landedClass = landedTimestamps[m.id] ? " row-landed" : "";
-        const actionCell = m.rawState === "Fallen"
-          ? '<td style="color:#666;">-</td>'
-          : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
+        const actionCell = m.rawState === "Fallen" ? '<td style="color:#666;">-</td>' : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
         const isAlarmOn = activeAlarms[m.id];
         const alarmClass = isAlarmOn ? "alarm-btn alarm-active" : "alarm-btn";
         const alarmSymbol = isAlarmOn ? "🔔" : "🔕";
-        return '<tr class="' + landedClass + '">' +
-          '<td><div class="player-cell"><button class="' + alarmClass + '" onclick="toggleAlarm(\'' + m.id + '\', this)" title="Toggle Audio Alert">' + alarmSymbol + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td>' +
-          '<td>' + m.level + '</td>' +
-          '<td class="' + m.rawState + '">' + m.label + '</td>' +
-          '<td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span></td>' +
-          actionCell +
-        '</tr>';
+        return '<tr class="' + landedClass + '"><td><div class="player-cell"><button class="' + alarmClass + '" onclick="toggleAlarm(\'' + m.id + '\', this)" title="Toggle Audio Alert">' + alarmSymbol + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span></div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span></td>' + actionCell + '</tr>';
       }).join("");
     }
 
@@ -1092,8 +940,7 @@
       let needsFullResort = false;
       for (let i = 0; i < liveFlightNodes.length; i++) {
         const el = liveFlightNodes[i];
-        const start = Number(el.dataset.flightStart);
-        el.textContent = el.dataset.flightPrefix + formatElapsedFlight(now - start);
+        el.textContent = el.dataset.flightPrefix + formatElapsedFlight(now - Number(el.dataset.flightStart));
       }
       for (let i = 0; i < liveCountdownNodes.length; i++) {
         const el = liveCountdownNodes[i];
@@ -1104,48 +951,28 @@
         const diff = until - now;
         if ((state === "Hospital" || state === "Jail") && diff <= 15 && diff > 0 && activeAlarms[playerId]) {
           const stayKey = playerId + "_" + until;
-          if (!triggeredAlarms.has(stayKey)) {
-            triggeredAlarms.add(stayKey);
-            playSustainedAlarm(isAlly);
-          }
+          if (!triggeredAlarms.has(stayKey)) { triggeredAlarms.add(stayKey); playSustainedAlarm(isAlly); }
         }
-        if (diff <= -8) {
-          needsFullResort = true;
-          break;
-        }
+        if (diff <= -8) { needsFullResort = true; break; }
         el.textContent = formatHHMMSS(diff);
-        if (diff <= 0) {
-          el.className = "timer ";
-        } else if (diff <= 120) {
-          el.className = "timer timer-red-fast";
-        } else if (diff <= 300) {
-          el.className = "timer timer-yellow-slow";
-        } else if (diff <= 600) {
-          el.className = "timer timer-yellow-solid";
-        }
+        if (diff <= 0) el.className = "timer ";
+        else if (diff <= 120) el.className = "timer timer-red-fast";
+        else if (diff <= 300) el.className = "timer timer-yellow-slow";
+        else if (diff <= 600) el.className = "timer timer-yellow-solid";
         if (diff <= 20 && diff > 0) {
           const atkBtn = el.parentElement.nextElementSibling && el.parentElement.nextElementSibling.firstElementChild;
-          if (atkBtn && !atkBtn.classList.contains("atk-ready") && isAttackReady(state, diff, el.dataset.city)) {
-            atkBtn.classList.add("atk-ready");
-          }
+          if (atkBtn && !atkBtn.classList.contains("atk-ready") && isAttackReady(state, diff, el.dataset.city)) atkBtn.classList.add("atk-ready");
         }
       }
-      if (needsFullResort) {
-        renderTables();
-      }
+      if (needsFullResort) renderTables();
       if (cachedData.ally || cachedData.enemy) {
         updateChains();
-        if (activeWarInfo) {
-          refreshWarBannerDynamic(activeWarInfo);
-        }
+        if (activeWarInfo) refreshWarBannerDynamic(activeWarInfo);
       }
     }
 
     setInterval(tickTimers, 1000);
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) tickTimers();
-    });
-
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) tickTimers(); });
     applyCollapseStates();
     updateActiveTab();
 
@@ -1155,22 +982,8 @@
     let boardStarted = false;
 
     document.getElementById("lockShow").onclick = function () {
-      if (lockKeyInput.type === "password") {
-        lockKeyInput.type = "text";
-        this.textContent = "Hide";
-      } else {
-        lockKeyInput.type = "password";
-        this.textContent = "Show";
-      }
-    };
-
-    document.getElementById("lockOutBtn").onclick = function () {
-      localStorage.removeItem("torn_pub_key");
-      document.cookie = "torn_pub_key=; Max-Age=0; path=/; SameSite=Lax";
-      keyInput.value = "";
-      document.getElementById("app").style.display = "none";
-      document.getElementById("lockScreen").hidden = false;
-      lockError.textContent = "";
+      if (lockKeyInput.type === "password") { lockKeyInput.type = "text"; this.textContent = "Hide"; }
+      else { lockKeyInput.type = "password"; this.textContent = "Show"; }
     };
 
     function openBoard(key) {
@@ -1178,10 +991,7 @@
       document.getElementById("app").style.display = "";
       keyInput.value = key;
       saveApiKey(key);
-      if (!boardStarted) {
-        boardStarted = true;
-        setupApiInterval();
-      }
+      if (!boardStarted) { boardStarted = true; setupApiInterval(); }
       homeDetected = false;
       updateActiveTab();
       fetchAllData();
@@ -1193,7 +1003,7 @@
         lockError.textContent = "Enter the 16-character public key from Torn. Not your email login.";
         return;
       }
-      lockError.textContent = "Asking Torn which faction this player is in…";
+      lockError.textContent = "Checking…";
       try {
         const data = await fetchTornApi("/v2/user?selections=basic,faction&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         const faction = data.faction || {};
@@ -1219,10 +1029,7 @@
     });
 
     const savedKey = loadSavedApiKey();
-    if (savedKey) {
-      lockKeyInput.value = savedKey;
-      tryUnlock(savedKey);
-    }
+    if (savedKey) { lockKeyInput.value = savedKey; tryUnlock(savedKey); }
   </script>
 </body>
 </html>
