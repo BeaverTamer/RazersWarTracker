@@ -7,6 +7,14 @@
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 10px; }
+    
+    /* Lock Screen Overlay */
+    #lockScreen { position: fixed; inset: 0; background: #121212; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; }
+    .lock-box { background: #181818; border: 1px solid #333; border-radius: 8px; padding: 25px; max-width: 400px; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .lock-box h2 { margin-top: 0; color: #ef5350; font-size: 1.2rem; }
+    .lock-box p { font-size: 0.85rem; color: #aaa; margin-bottom: 15px; }
+    .lock-input-group { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+
     .top-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
     .key-group { display: flex; gap: 5px; align-items: center; }
@@ -106,6 +114,19 @@
   </style>
 </head>
 <body>
+
+  <!-- Lock Screen Modal -->
+  <div id="lockScreen">
+    <div class="lock-box">
+      <h2>🔒 Razers War Tracker Locked</h2>
+      <p id="lockStatusMsg">Enter your Public Torn API key to verify membership before accessing this tracker.</p>
+      <div class="lock-input-group">
+        <input type="password" id="lockApiKeyInput" placeholder="Public Torn API Key" style="width: 220px;" />
+        <button class="load-btn" onclick="verifyAndUnlock()">Unlock</button>
+      </div>
+    </div>
+  </div>
+
   <div class="top-bar">
     <div class="tabs" id="factionTabs"></div>
     <div class="key-group">
@@ -232,11 +253,8 @@
       const factionData = type === 'ally' ? cachedData.ally : cachedData.enemy;
       if (!factionData || !factionData.members) return;
 
-      // Check if all currently loaded members in this faction are currently active
       const members = factionData.members;
       const allActive = members.every(m => activeAlarms[m.id]);
-
-      // If all are active, turn them all off. Otherwise, turn them all on.
       const newState = !allActive;
       members.forEach(m => {
         activeAlarms[m.id] = newState;
@@ -247,7 +265,6 @@
     }
 
     function updateMasterButtonStates() {
-      // Ally Master Button State
       if (cachedData.ally && cachedData.ally.members && cachedData.ally.members.length > 0) {
         const allAllyActive = cachedData.ally.members.every(m => activeAlarms[m.id]);
         const someAllyActive = cachedData.ally.members.some(m => activeAlarms[m.id]);
@@ -256,7 +273,6 @@
         btn.textContent = allAllyActive ? "🔔 All On" : (someAllyActive ? "🔔 Some" : "🔕 All Off");
       }
 
-      // Enemy Master Button State
       if (cachedData.enemy && cachedData.enemy.members && cachedData.enemy.members.length > 0) {
         const allEnemyActive = cachedData.enemy.members.every(m => activeAlarms[m.id]);
         const someEnemyActive = cachedData.enemy.members.some(m => activeAlarms[m.id]);
@@ -303,7 +319,7 @@
         const osc1 = audioCtx.createOscillator();
         const gain1 = audioCtx.createGain();
         osc1.type = "sawtooth";
-        osc1.frequency.setValueAtTime(110, audioCtx.currentTime); // A2 (Low harsh buzz)
+        osc1.frequency.setValueAtTime(110, audioCtx.currentTime); // A2
         gain1.gain.setValueAtTime(0.25, audioCtx.currentTime);
         gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
         osc1.connect(gain1);
@@ -324,7 +340,6 @@
       } catch(e) {}
     }
 
-    // Repeats the appropriate sound for 5 seconds (5 rings total)
     function playSustainedAlarm(isAlly) {
       const soundFunc = isAlly ? playAllyChime : playEnemyAlarmSound;
       soundFunc();
@@ -339,7 +354,6 @@
       }, 1000);
     }
 
-    // DOM Element Cache
     const statusBarEl = document.getElementById("statusBar");
     const myLocBadgeEl = document.getElementById("myLocBadge");
     const warBannerEl = document.getElementById("warBanner");
@@ -357,6 +371,9 @@
     const allyTitleLinkEl = document.getElementById("allyTitleLink");
     const enemyTitleLinkEl = document.getElementById("enemyTitleLink");
     const keyInput = document.getElementById("apiKey");
+    const lockScreen = document.getElementById("lockScreen");
+    const lockApiKeyInput = document.getElementById("lockApiKeyInput");
+    const lockStatusMsg = document.getElementById("lockStatusMsg");
 
     let currentRefreshInterval = Number(localStorage.getItem("razers_refresh_ms")) || 15000;
     const intervalSelect = document.getElementById("refreshIntervalSelect");
@@ -503,7 +520,54 @@
       return match ? decodeURIComponent(match[1]) : "";
     }
 
-    keyInput.value = loadSavedApiKey();
+    // --- Faction Verification Gate ---
+    async function verifyAndUnlock() {
+      const key = (lockApiKeyInput.value || loadSavedApiKey()).trim();
+      if (!key) {
+        lockStatusMsg.textContent = "Please enter a valid API key.";
+        lockStatusMsg.style.color = "#ef5350";
+        return;
+      }
+
+      lockStatusMsg.textContent = "Verifying Razers membership...";
+      lockStatusMsg.style.color = "#aaa";
+
+      try {
+        const userData = await fetchTornApi("/user/?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersGatekeeper");
+        
+        if (userData && userData.faction && userData.faction.faction_id) {
+          const userFacId = Number(userData.faction.faction_id);
+          const isRazersMember = OUR_FACTIONS.some(f => f.id === userFacId);
+
+          if (isRazersMember) {
+            saveApiKey(key);
+            keyInput.value = key;
+            selectedFactionId = userFacId;
+            sessionStorage.setItem("razers_tab", String(selectedFactionId));
+            
+            // Hide lock screen and boot tracker
+            lockScreen.style.display = "none";
+            updateActiveTab();
+            fetchAllData();
+            setupApiInterval();
+          } else {
+            lockStatusMsg.textContent = "Access Denied: You must be in a Razers faction to access this tracker.";
+            lockStatusMsg.style.color = "#ef5350";
+          }
+        } else {
+          throw new Error("Invalid API key response");
+        }
+      } catch (err) {
+        lockStatusMsg.textContent = "API Error: " + err.message;
+        lockStatusMsg.style.color = "#ef5350";
+      }
+    }
+
+    const savedKey = loadSavedApiKey();
+    if (savedKey) {
+      lockApiKeyInput.value = savedKey;
+      verifyAndUnlock(); // Auto-verify on page load if key is stored
+    }
 
     function toggleKeyVisibility() {
       const btn = document.getElementById("toggleKeyBtn");
@@ -910,16 +974,6 @@
           }
         }
 
-        if (!homeDetected && userData && userData.faction && userData.faction.faction_id) {
-          homeDetected = true;
-          const userFacId = Number(userData.faction.faction_id);
-          if (OUR_FACTIONS.some(f => f.id === userFacId) && userFacId !== selectedFactionId) {
-            selectedFactionId = userFacId;
-            sessionStorage.setItem("razers_tab", String(selectedFactionId));
-            updateActiveTab();
-          }
-        }
-
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
         updateFlightTrackers(allyData, true);
@@ -1110,7 +1164,6 @@
       updateMasterButtonStates();
     }
 
-    // Zero-allocation 1-second timer tick loop with drift-proof <= 15s checks
     function tickTimers() {
       if (document.hidden) return;
       const now = (Date.now() / 1000) | 0;
@@ -1130,7 +1183,6 @@
         const isAlly = el.dataset.ally === "1";
         const diff = until - now;
 
-        // Drift-proof check: fires once per hospital stay when entering the <= 15s window
         if ((state === "Hospital" || state === "Jail") && diff <= 15 && diff > 0 && activeAlarms[playerId]) {
           const stayKey = playerId + "_" + until;
           if (!triggeredAlarms.has(stayKey)) {
@@ -1176,15 +1228,11 @@
       }
     }
 
-    setInterval(tickTimers, 1000);
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) tickTimers();
     });
 
-    setupApiInterval();
     applyCollapseStates();
-    updateActiveTab();
-    if (keyInput.value) fetchAllData();
   </script>
 </body>
 </html>
