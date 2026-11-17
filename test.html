@@ -520,6 +520,34 @@
       return match ? decodeURIComponent(match[1]) : "";
     }
 
+    // --- Robust API Fetch with Detailed Error Extraction ---
+    async function fetchTornApi(endpointPath, keyToUse) {
+      const directUrl = "https://api.torn.com" + endpointPath + (endpointPath.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(keyToUse) + "&comment=RazersWarTracker";
+      const proxies = [
+        directUrl,
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(directUrl),
+        "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(directUrl)
+      ];
+      
+      let lastErr = null;
+      for (const url of proxies) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("HTTP status " + res.status);
+          const data = await res.json();
+          
+          // Check if Torn returned an API error object inside valid JSON
+          if (data.error) {
+            throw new Error(data.error.error || "Torn API Error code " + data.error.code);
+          }
+          return data;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error("Network request failed");
+    }
+
     // --- Faction Verification Gate ---
     async function verifyAndUnlock() {
       const key = (lockApiKeyInput.value || loadSavedApiKey()).trim();
@@ -533,7 +561,7 @@
       lockStatusMsg.style.color = "#aaa";
 
       try {
-        const userData = await fetchTornApi("/user/?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersGatekeeper");
+        const userData = await fetchTornApi("/user/?selections=basic", key);
         
         if (userData && userData.faction && userData.faction.faction_id) {
           const userFacId = Number(userData.faction.faction_id);
@@ -551,11 +579,11 @@
             fetchAllData();
             setupApiInterval();
           } else {
-            lockStatusMsg.textContent = "Access Denied: You must be in a Razers faction to access this tracker.";
+            lockStatusMsg.textContent = "Access Denied: Your faction ID (" + userFacId + ") is not authorized.";
             lockStatusMsg.style.color = "#ef5350";
           }
         } else {
-          throw new Error("Invalid API key response");
+          throw new Error("Could not read user faction from API response");
         }
       } catch (err) {
         lockStatusMsg.textContent = "API Error: " + err.message;
@@ -583,16 +611,16 @@
     function manualLoad() {
       const val = keyInput.value.trim();
       saveApiKey(val);
-      homeDetected = false;
-      fetchAllData();
+      lockApiKeyInput.value = val;
+      verifyAndUnlock();
     }
 
     keyInput.addEventListener("input", () => {
       const val = keyInput.value.trim();
       saveApiKey(val);
       if (val.length === 16) {
-        homeDetected = false;
-        fetchAllData();
+        lockApiKeyInput.value = val;
+        verifyAndUnlock();
       }
     });
 
@@ -644,28 +672,6 @@
         switchTab(OUR_FACTIONS[nextIdx].id);
       }
     }, { passive: true });
-
-    async function fetchTornApi(endpointPath) {
-      const directUrl = "https://api.torn.com" + endpointPath;
-      const proxies = [
-        directUrl,
-        "https://api.allorigins.win/raw?url=" + encodeURIComponent(directUrl),
-        "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(directUrl)
-      ];
-      let lastErr = null;
-      for (const url of proxies) {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          if (data.error) throw new Error(data.error.error);
-          return data;
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-      throw lastErr || new Error("Network error");
-    }
 
     function detectCityCode(text) {
       if (!text) return "TC";
@@ -887,7 +893,7 @@
     }
 
     async function loadFactionCombined(id, key) {
-      const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
+      const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars", key);
       const basic = data.basic || data;
       const normalized = {
         ID: basic.id || basic.ID || id,
@@ -963,7 +969,7 @@
       statusBarEl.textContent = "Syncing live data...";
 
       try {
-        const userData = await fetchTornApi("/user/?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
+        const userData = await fetchTornApi("/user/?selections=basic", key);
         if (userData && userData.status) {
           if (userData.status.state === "Traveling") {
             myCityCode = "TRAVEL";
