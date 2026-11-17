@@ -215,8 +215,8 @@
       btn.textContent = activeAlarms[id] ? "🔔" : "🔕";
     }
 
-    // Single Double-Chime instance
-    function playSingleDoubleChime() {
+    // 1. Ally Sound: Smooth double-chime (Ding-Dong)
+    function playAllyChime() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
@@ -244,16 +244,46 @@
       } catch(e) {}
     }
 
-    // Repeats the double chime once every second for 5 seconds (5 rings total)
-    function playSustainedAlarm() {
-      playSingleDoubleChime();
+    // 2. Enemy Sound: Abrasive, urgent double-beep (Square wave profile)
+    function playEnemyAlarmSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = "square";
+        osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        gain1.gain.setValueAtTime(0.18, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.15);
+
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "square";
+        osc2.frequency.setValueAtTime(987.77, audioCtx.currentTime + 0.15); // B5
+        gain2.gain.setValueAtTime(0.18, audioCtx.currentTime + 0.15);
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(audioCtx.currentTime + 0.15);
+        osc2.stop(audioCtx.currentTime + 0.3);
+      } catch(e) {}
+    }
+
+    // Repeats the appropriate sound for 5 seconds (5 rings total)
+    function playSustainedAlarm(isAlly) {
+      const soundFunc = isAlly ? playAllyChime : playEnemyAlarmSound;
+      soundFunc();
       let count = 1;
       const interval = setInterval(() => {
         if (count >= 5) {
           clearInterval(interval);
           return;
         }
-        playSingleDoubleChime();
+        soundFunc();
         count++;
       }, 1000);
     }
@@ -347,7 +377,7 @@
       } catch (e) {}
     }
 
-    function updateFlightTrackers(factionData) {
+    function updateFlightTrackers(factionData, isAlly) {
       if (!factionData || !factionData.members) return;
       const now = (Date.now() / 1000) | 0;
       let changed = false;
@@ -363,7 +393,7 @@
         const m = factionData.members[i];
         const id = m.id;
         const state = m.rawState;
-        const prevState = lastKnownStates[id];
+        const prevState = lastKnownStates[id + (isAlly ? "_ally" : "_enemy")];
 
         if (state === "Traveling") {
           const route = m.label;
@@ -375,9 +405,8 @@
         } else {
           if (prevState === "Traveling" && flightStarts[id]) {
             landedTimestamps[id] = now;
-            // Trigger 5-second sustained alarm if user set bell alarm for this player
             if (activeAlarms[id]) {
-              playSustainedAlarm();
+              playSustainedAlarm(isAlly);
             }
             setTimeout(() => {
               delete landedTimestamps[id];
@@ -389,7 +418,7 @@
             changed = true;
           }
         }
-        lastKnownStates[id] = state;
+        lastKnownStates[id + (isAlly ? "_ally" : "_enemy")] = state;
       }
       if (changed) saveFlightStarts();
     }
@@ -842,7 +871,7 @@
 
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
-        updateFlightTrackers(allyData);
+        updateFlightTrackers(allyData, true);
         
         allyTitleLinkEl.textContent = allyData.name + " [" + allyData.ID + "]";
         allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + allyData.ID;
@@ -851,7 +880,7 @@
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
-          updateFlightTrackers(enemyData);
+          updateFlightTrackers(enemyData, false);
           
           enemyTitleLinkEl.textContent = enemyData.name + " [" + enemyData.ID + "]";
           enemyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + enemyData.ID;
@@ -949,7 +978,7 @@
       return false;
     }
 
-    function renderRoster(factionData, tbodyEl) {
+    function renderRoster(factionData, tbodyEl, isAlly) {
       if (!factionData || !factionData.members) {
         tbodyEl.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
         return;
@@ -994,11 +1023,11 @@
           const prefix = fInfo.exact ? "+" : "~+";
           timerText = prefix + formatElapsedFlight(elapsed);
           alertClass = "timer-flight";
-          dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '" data-id="' + m.id + '"';
+          dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '" data-id="' + m.id + '" data-ally="' + (isAlly ? "1" : "0") + '"';
         } else if (m.until > 0) {
           timerText = formatHHMMSS(diff);
           alertClass = getTimerAlertClass(m.rawState, diff);
-          dataAttrs = ' data-until="' + m.until + '" data-state="' + m.rawState + '" data-city="' + m.city + '" data-id="' + m.id + '"';
+          dataAttrs = ' data-until="' + m.until + '" data-state="' + m.rawState + '" data-city="' + m.city + '" data-id="' + m.id + '" data-ally="' + (isAlly ? "1" : "0") + '"';
         }
 
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
@@ -1022,13 +1051,13 @@
     }
 
     function renderTables() {
-      renderRoster(cachedData.ally, allyBodyEl);
-      renderRoster(cachedData.enemy, enemyBodyEl);
+      renderRoster(cachedData.ally, allyBodyEl, true);
+      renderRoster(cachedData.enemy, enemyBodyEl, false);
       liveCountdownNodes = Array.from(document.querySelectorAll(".timer[data-until]"));
       liveFlightNodes = Array.from(document.querySelectorAll(".timer[data-flight-start]"));
     }
 
-    // Zero-allocation 1-second timer tick loop with 5-second sustained alarm triggers
+    // Zero-allocation 1-second timer tick loop with faction-aware audio alarms
     function tickTimers() {
       if (document.hidden) return;
       const now = (Date.now() / 1000) | 0;
@@ -1044,11 +1073,12 @@
         const el = liveCountdownNodes[i];
         const until = Number(el.dataset.until);
         const playerId = el.dataset.id;
+        const isAlly = el.dataset.ally === "1";
         const diff = until - now;
 
-        // Trigger 5-second sustained alarm exactly at 15 seconds remaining
+        // Trigger faction-specific 5-second sustained alarm exactly at 15 seconds remaining
         if (diff === 15 && activeAlarms[playerId]) {
-          playSustainedAlarm();
+          playSustainedAlarm(isAlly);
         }
 
         if (diff <= -8) {
