@@ -780,11 +780,14 @@
       }
       for (let i = 0; i < liveCountdownNodes.length; i++) {
         const el = liveCountdownNodes[i];
-        const diff = Number(el.dataset.until) - now;
+        const until = Number(el.dataset.until);
+        const playerId = el.dataset.id;
         const state = el.dataset.state;
-        if ((state === "Hospital" || state === "Jail") && diff <= 15 && diff > 0 && activeAlarms[el.dataset.id]) {
-          const stayKey = el.dataset.id + "_" + el.dataset.until;
-          if (!triggeredAlarms.has(stayKey)) { triggeredAlarms.add(stayKey); playSustainedAlarm(el.dataset.ally === "1"); }
+        const isAlly = el.dataset.ally === "1";
+        const diff = until - now;
+        if ((state === "Hospital" || state === "Jail") && diff <= 90 && diff > 0 && activeAlarms[playerId]) {
+          const stayKey = playerId + "_" + until;
+          if (!triggeredAlarms.has(stayKey)) { triggeredAlarms.add(stayKey); playSustainedAlarm(isAlly); }
         }
         if (diff <= -8) { needsFullResort = true; break; }
         el.textContent = formatHHMMSS(diff);
