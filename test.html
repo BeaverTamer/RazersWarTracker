@@ -38,10 +38,12 @@
     @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; contain: content; }
     .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
-    .panel-header-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
-    .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
-    .faction-title-link { color: #fff; text-decoration: none; }
-    .faction-title-link:hover { text-decoration: underline; color: #90caf9; }
+    .panel-header-left { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: visible; }
+    .panel-header h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+    .faction-title-link { color: #fff; text-decoration: none; display: inline-flex; align-items: center; min-width: 0; max-width: 88px; }
+    .faction-title-link:hover { opacity: 0.85; }
+    .faction-tag { height: 22px; width: auto; max-width: 88px; object-fit: contain; display: block; }
+    .faction-short-tag { font-size: 0.82rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
     .master-alarm-btn, .clear-flags-btn {
       background: #252525;
       border: 1px solid #383838;
@@ -56,6 +58,7 @@
       align-items: center;
       justify-content: center;
       box-sizing: border-box;
+      flex-shrink: 0;
     }
     .master-alarm-btn:hover, .clear-flags-btn:hover { background: #333; color: #fff; }
     .master-alarm-btn.alarm-active { background: rgba(253, 216, 53, 0.2); color: #fdd835; border-color: #fdd835; }
@@ -64,7 +67,7 @@
     .collapse-btn:hover { background: #333; color: #fff; }
     .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
     .panel.collapsed { padding-bottom: 6px; border-style: dashed; }
-    .chain-badge { font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; }
+    .chain-badge { font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; flex-shrink: 0; }
     .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #4caf50; }
     .chain-cooldown { background: #b3e5fc; color: #01579b; border-color: #4fc3f7; box-shadow: 0 0 6px rgba(179, 229, 252, 0.4); }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
@@ -116,6 +119,7 @@
       a.atk-btn { padding: 2px 5px; font-size: 0.72rem; }
       input { width: 110px; }
       .find-box { width: 82px; }
+      .faction-tag { height: 20px; }
     }
     @keyframes flashYellow { 0%, 100% { background-color: rgba(253, 216, 53, 0.28); color: #fff59d; } 50% { background-color: transparent; color: #fdd835; } }
     @keyframes flashRed { 0%, 100% { background-color: rgba(229, 57, 53, 0.48); color: #ffffff; } 50% { background-color: transparent; color: #ff5252; } }
@@ -189,11 +193,9 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="allyCollapseBtn" onclick="togglePanel('ally')">[-]</button>
-          <h2>
-            <a id="allyTitleLink" class="faction-title-link" href="#" target="_blank">Razers</a>
-            <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
-            <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear flags you set on this side">+⚔ Clear</button>
-          </h2>
+          <h2><a id="allyTitleLink" class="faction-title-link" href="#" target="_blank" title="Razers">Razers</a></h2>
+          <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear flags you set on this side">+⚔ Clear</button>
         </div>
         <span class="chain-badge" id="allyChain">⛓️ --</span>
       </div>
@@ -208,11 +210,9 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="enemyCollapseBtn" onclick="togglePanel('enemy')">[-]</button>
-          <h2>
-            <a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank">Warring Opponent</a>
-            <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
-            <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear flags you set on this side">+⚔ Clear</button>
-          </h2>
+          <h2><a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank" title="Warring Opponent">Opponent</a></h2>
+          <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear flags you set on this side">+⚔ Clear</button>
         </div>
         <span class="chain-badge" id="enemyChain">⛓️ --</span>
       </div>
@@ -483,6 +483,35 @@
     const enemyChainEl = document.getElementById("enemyChain");
     const allyTitleLinkEl = document.getElementById("allyTitleLink");
     const enemyTitleLinkEl = document.getElementById("enemyTitleLink");
+
+    function setFactionTitle(linkEl, name, id, tagImage, shortTag) {
+      linkEl.href = id ? "https://www.torn.com/factions.php?step=profile&ID=" + id : "#";
+      linkEl.title = name || "";
+      linkEl.innerHTML = "";
+      const label = shortTag || name || "Faction";
+      if (tagImage) {
+        const img = document.createElement("img");
+        img.className = "faction-tag";
+        img.alt = label;
+        img.title = name || label;
+        img.src = String(tagImage).indexOf("http") === 0 ? tagImage : "https://factiontags.torn.com/" + tagImage;
+        img.onerror = function () {
+          this.remove();
+          if (!linkEl.querySelector(".faction-short-tag")) {
+            const span = document.createElement("span");
+            span.className = "faction-short-tag";
+            span.textContent = label;
+            linkEl.appendChild(span);
+          }
+        };
+        linkEl.appendChild(img);
+        return;
+      }
+      const span = document.createElement("span");
+      span.className = "faction-short-tag";
+      span.textContent = label;
+      linkEl.appendChild(span);
+    }
     const keyInput = document.getElementById("apiKey");
     let currentRefreshInterval = Number(localStorage.getItem("razers_refresh_ms")) || 15000;
     const intervalSelect = document.getElementById("refreshIntervalSelect");
@@ -491,10 +520,6 @@
       currentRefreshInterval = Number(intervalSelect.value);
       localStorage.setItem("razers_refresh_ms", currentRefreshInterval);
       setupApiInterval();
-    }
-    function setupApiInterval() {
-      if (apiIntervalId) clearInterval(apiIntervalId);
-      apiIntervalId = setInterval(fetchAllData, currentRefreshInterval);
     }
     let flagsIntervalId = null;
     let lastFlagsJson = "";
@@ -643,8 +668,7 @@
       });
       const current = OUR_FACTIONS.find(f => f.id === selectedFactionId);
       if (current) {
-        allyTitleLinkEl.textContent = current.name;
-        allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + current.id;
+        setFactionTitle(allyTitleLinkEl, current.name, current.id, "");
       }
     }
     let touchStartX = 0, touchStartY = 0;
@@ -795,7 +819,7 @@
     async function loadFactionCombined(id, key) {
       const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
       const basic = data.basic || data;
-      const normalized = { ID: basic.id || basic.ID || id, name: basic.name || "Faction", chain: data.chain || null, members: [], ranked_wars: {}, territory_wars: {}, raid_wars: {} };
+      const normalized = { ID: basic.id || basic.ID || id, name: basic.name || "Faction", tag: basic.tag || "", tagImage: basic.tag_image || basic.tagImage || "", chain: data.chain || null, members: [], ranked_wars: {}, territory_wars: {}, raid_wars: {} };
       const rawMembers = Array.isArray(data.members) ? data.members : (data.members && typeof data.members === "object" ? Object.entries(data.members).map(([k, v]) => ({ ...v, id: v.id || k })) : []);
       for (let i = 0; i < rawMembers.length; i++) {
         const m = rawMembers[i];
@@ -838,21 +862,18 @@
         cachedData.ally = allyData;
         clearFlagForHospitalized(allyData);
         updateFlightTrackers(allyData, true);
-        allyTitleLinkEl.textContent = allyData.name;
-        allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + allyData.ID;
+        setFactionTitle(allyTitleLinkEl, allyData.name, allyData.ID, allyData.tagImage, allyData.tag);
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
           clearFlagForHospitalized(enemyData);
           updateFlightTrackers(enemyData, false);
-          enemyTitleLinkEl.textContent = enemyData.name;
-          enemyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + enemyData.ID;
+          setFactionTitle(enemyTitleLinkEl, enemyData.name, enemyData.ID, enemyData.tagImage, enemyData.tag);
           updateWarBanner(warInfo, enemyData);
         } else {
           cachedData.enemy = null;
-          enemyTitleLinkEl.textContent = "No Active War";
-          enemyTitleLinkEl.href = "#";
+          setFactionTitle(enemyTitleLinkEl, "No Active War", null, "", "—");
           updateWarBanner(null, null);
         }
         renderTables();
