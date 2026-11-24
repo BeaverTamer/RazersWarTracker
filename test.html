@@ -195,7 +195,7 @@
             <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear flags you set on this side">+⚔ Clear</button>
           </h2>
         </div>
-        <span class="chain-badge" id="allyChain">Chain: --</span>
+        <span class="chain-badge" id="allyChain">⛓️ --</span>
       </div>
       <div class="panel-body">
         <table>
@@ -214,7 +214,7 @@
             <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear flags you set on this side">+⚔ Clear</button>
           </h2>
         </div>
-        <span class="chain-badge" id="enemyChain">Chain: --</span>
+        <span class="chain-badge" id="enemyChain">⛓️ --</span>
       </div>
       <div class="panel-body">
         <table>
@@ -874,18 +874,18 @@
       return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
     }
     function renderChainBadge(factionData, el, isAlly) {
-      if (!factionData || !factionData.chain) { el.textContent = "Chain: None"; el.className = "chain-badge"; return; }
+      if (!factionData || !factionData.chain) { el.textContent = "⛓️ None"; el.className = "chain-badge"; return; }
       const c = factionData.chain;
       const now = (Date.now() / 1000) | 0;
-      if (c.cooldown > 0 && c.cooldown - now > 0) { el.textContent = "Chain: " + (c.current || 0) + " (CD " + formatMMSS(c.cooldown - now) + ")"; el.className = "chain-badge chain-cooldown"; return; }
-      if (!c.current) { el.textContent = "Chain: None"; el.className = "chain-badge"; return; }
+      if (c.cooldown > 0 && c.cooldown - now > 0) { el.textContent = "⛓️ " + (c.current || 0) + " (CD " + formatMMSS(c.cooldown - now) + ")"; el.className = "chain-badge chain-cooldown"; return; }
+      if (!c.current) { el.textContent = "⛓️ None"; el.className = "chain-badge"; return; }
       const timeoutRem = c.timeout > 0 ? Math.max(0, c.end - now) : 0;
       if (timeoutRem > 0) {
-        el.textContent = "Chain: " + c.current + "/" + (c.max || "?") + " (" + formatMMSS(timeoutRem) + ")";
+        el.textContent = "⛓️ " + c.current + "/" + (c.max || "?") + " (" + formatMMSS(timeoutRem) + ")";
         if ((isAlly && timeoutRem < 60) || (!isAlly && timeoutRem <= 60)) el.className = "chain-badge timer-red-fast";
         else if (isAlly && timeoutRem < 150) el.className = "chain-badge timer-yellow-slow";
         else el.className = "chain-badge chain-active";
-      } else { el.textContent = "Chain: " + c.current; el.className = "chain-badge"; }
+      } else { el.textContent = "⛓️ " + c.current; el.className = "chain-badge"; }
     }
     function updateChains() {
       renderChainBadge(cachedData.ally, allyChainEl, true);
