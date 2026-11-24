@@ -42,9 +42,24 @@
     .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
     .faction-title-link { color: #fff; text-decoration: none; }
     .faction-title-link:hover { text-decoration: underline; color: #90caf9; }
-    .master-alarm-btn { background: #252525; border: 1px solid #383838; color: #aaa; cursor: pointer; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; }
-    .master-alarm-btn:hover { background: #333; color: #fff; }
+    .master-alarm-btn, .clear-flags-btn {
+      background: #252525;
+      border: 1px solid #383838;
+      color: #aaa;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 0.75rem;
+      border-radius: 4px;
+      height: 22px;
+      line-height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    .master-alarm-btn:hover, .clear-flags-btn:hover { background: #333; color: #fff; }
     .master-alarm-btn.alarm-active { background: rgba(253, 216, 53, 0.2); color: #fdd835; border-color: #fdd835; }
+    .clear-flags-btn { margin-left: 4px; }
     .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
     .collapse-btn:hover { background: #333; color: #fff; }
     .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
@@ -89,6 +104,7 @@
     .Fallen { color: #757575; font-style: italic; }
     .timer { font-family: monospace; font-size: 0.82rem; padding: 1px 4px; border-radius: 3px; }
     .timer-flight { color: #90caf9; }
+    .flag-elapsed { display: block; font-size: 0.65rem; color: #888; line-height: 1; margin-top: 1px; font-family: monospace; }
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 7px; border-radius: 4px; text-decoration: none; font-size: 0.75rem; font-weight: 700; display: inline-block; line-height: 18px; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
     @media (max-width: 480px) {
@@ -176,6 +192,7 @@
           <h2>
             <a id="allyTitleLink" class="faction-title-link" href="#" target="_blank">Razers</a>
             <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
+            <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear flags you set on this side">+⚔ Clear</button>
           </h2>
         </div>
         <span class="chain-badge" id="allyChain">Chain: --</span>
@@ -194,6 +211,7 @@
           <h2>
             <a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank">Warring Opponent</a>
             <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
+            <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear flags you set on this side">+⚔ Clear</button>
           </h2>
         </div>
         <span class="chain-badge" id="enemyChain">Chain: --</span>
@@ -341,6 +359,28 @@
       pushFlagToRemote(key, nextVal).then(() => {
         setTimeout(syncFlagsFromRemote, 800);
       });
+    }
+
+    function clearFactionFlags(type) {
+      const factionData = type === 'ally' ? cachedData.ally : cachedData.enemy;
+      if (!factionData || !factionData.members) return;
+      let cleared = 0;
+      for (let i = 0; i < factionData.members.length; i++) {
+        const id = String(factionData.members[i].id);
+        const flag = targetFlags[id];
+        if (flag && flag.by === currentUserName) {
+          delete targetFlags[id];
+          pushFlagToRemote(id, null);
+          cleared++;
+        }
+      }
+      if (cleared > 0) {
+        saveLocalFlags();
+        renderTables();
+        statusBarEl.textContent = "Cleared " + cleared + " of your flag(s) on " + type + " side";
+      } else {
+        statusBarEl.textContent = "No flags set by you on " + type + " side";
+      }
     }
 
     function toggleAlarm(id, btn) {
@@ -913,7 +953,18 @@
           ? '<div class="flag-subline flag-' + flagType + '"><span class="flag-arrow">↳</span><span>' + (flagType === "med" ? "+ Medding" : "⚔ On It") + '</span><span class="flag-by">· ' + flag.by + '</span></div>'
           : "";
 
-        return '<tr class="' + rowFlagClass + '"><td><div class="player-stack"><div class="player-cell"><button class="' + (activeAlarms[m.id] ? "alarm-btn alarm-active" : "alarm-btn") + '" onclick="toggleAlarm(\'' + m.id + '\', this)">' + (activeAlarms[m.id] ? "🔔" : "🔕") + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span><button class="' + flagBtnClass + '" onclick="cycleTargetFlag(\'' + m.id + '\')" title="' + flagTitle + '">' + flagIcon + '</button></div>' + subLineHtml + '</div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span></td>' + actionCell + '</tr>';
+        let lastActClass = "last-act";
+
+        let flagElapsedHtml = "";
+        if (flag && flag.at) {
+          const elapsed = Math.max(0, now - flag.at);
+          const em = Math.floor(elapsed / 60);
+          const es = elapsed % 60;
+          const eText = em > 0 ? em + "m" + (es < 10 ? "0" : "") + es + "s" : es + "s";
+          flagElapsedHtml = '<span class="flag-elapsed" data-at="' + flag.at + '">' + eText + '</span>';
+        }
+
+        return '<tr class="' + rowFlagClass + '"><td><div class="player-stack"><div class="player-cell"><button class="' + (activeAlarms[m.id] ? "alarm-btn alarm-active" : "alarm-btn") + '" onclick="toggleAlarm(\'' + m.id + '\', this)">' + (activeAlarms[m.id] ? "🔔" : "🔕") + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="' + lastActClass + '">' + m.lastAct + '</span><button class="' + flagBtnClass + '" onclick="cycleTargetFlag(\'' + m.id + '\')" title="' + flagTitle + '">' + flagIcon + '</button></div>' + subLineHtml + '</div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span>' + flagElapsedHtml + '</td>' + actionCell + '</tr>';
       }).join("");
     }
     function renderTables() {
@@ -931,6 +982,14 @@
         const el = liveFlightNodes[i];
         el.textContent = el.dataset.flightPrefix + formatElapsedFlight(now - Number(el.dataset.flightStart));
       }
+      document.querySelectorAll(".flag-elapsed").forEach(el => {
+        const at = Number(el.dataset.at);
+        if (!at) return;
+        const elapsed = Math.max(0, now - at);
+        const em = Math.floor(elapsed / 60);
+        const es = elapsed % 60;
+        el.textContent = em > 0 ? em + "m" + (es < 10 ? "0" : "") + es + "s" : es + "s";
+      });
       for (let i = 0; i < liveCountdownNodes.length; i++) {
         const el = liveCountdownNodes[i];
         const diff = Number(el.dataset.until) - now;
