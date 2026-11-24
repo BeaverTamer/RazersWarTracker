@@ -338,7 +338,9 @@
       }
       saveLocalFlags();
       renderTables();
-      pushFlagToRemote(key, nextVal);
+      pushFlagToRemote(key, nextVal).then(() => {
+        setTimeout(syncFlagsFromRemote, 800);
+      });
     }
 
     function toggleAlarm(id, btn) {
@@ -453,6 +455,20 @@
     function setupApiInterval() {
       if (apiIntervalId) clearInterval(apiIntervalId);
       apiIntervalId = setInterval(fetchAllData, currentRefreshInterval);
+    }
+    let flagsIntervalId = null;
+    let lastFlagsJson = "";
+    function setupFlagsInterval() {
+      if (flagsIntervalId) clearInterval(flagsIntervalId);
+      flagsIntervalId = setInterval(async () => {
+        if (document.hidden || !keyInput.value.trim()) return;
+        await syncFlagsFromRemote();
+        const currentJson = JSON.stringify(targetFlags);
+        if (currentJson !== lastFlagsJson) {
+          lastFlagsJson = currentJson;
+          renderTables();
+        }
+      }, 2000);
     }
     let collapsedState = {
       ally: localStorage.getItem("razers_ally_collapsed") === "true",
@@ -1007,7 +1023,7 @@
       document.getElementById("app").style.display = "";
       keyInput.value = key;
       saveApiKey(key);
-      if (!boardStarted) { boardStarted = true; setupApiInterval(); }
+      if (!boardStarted) { boardStarted = true; setupApiInterval(); setupFlagsInterval(); }
       homeDetected = false;
       updateActiveTab();
       fetchAllData();
