@@ -239,7 +239,6 @@
     let activeWarInfo = null;
     let apiIntervalId = null;
     let playerQuery = "";
-    let flaggedOnly = false;
     let liveCountdownNodes = [];
     let liveFlightNodes = [];
     const triggeredAlarms = new Set();
@@ -288,7 +287,7 @@
       if (!base) return;
       try {
         const res = await fetch(base + "/flags.json");
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("HTTP " + res.status);
         const remote = await res.json();
         const now = (Date.now() / 1000) | 0;
         const next = {};
@@ -301,19 +300,25 @@
         }
         targetFlags = next;
         saveLocalFlags();
-      } catch(e) {}
+      } catch(err) {
+        statusBarEl.textContent = "Flag sync read error: " + (err && err.message ? err.message : "Network error");
+      }
     }
 
     async function pushFlagToRemote(uid, payload) {
       const base = getDbBaseUrl();
       if (!base) return;
       try {
-        await fetch(base + "/flags/" + encodeURIComponent(String(uid)) + ".json", {
+        const res = await fetch(base + "/flags/" + encodeURIComponent(String(uid)) + ".json", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-      } catch(e) {}
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        statusBarEl.textContent = "Flag synced to Firebase (" + new Date().toLocaleTimeString() + ")";
+      } catch(err) {
+        statusBarEl.textContent = "Flag sync write error: " + (err && err.message ? err.message : "Network error");
+      }
     }
 
     function cycleTargetFlag(uid) {
@@ -565,16 +570,6 @@
       playerQuery = findInput.value.trim().toLowerCase();
       renderTables();
     });
-
-    const flaggedBtn = document.createElement("button");
-    flaggedBtn.textContent = "Flagged";
-    flaggedBtn.title = "Show only players with Medding or On It flags";
-    flaggedBtn.onclick = () => {
-      flaggedOnly = !flaggedOnly;
-      flaggedBtn.classList.toggle("active", flaggedOnly);
-      renderTables();
-    };
-    tabContainer.appendChild(flaggedBtn);
 
     tabContainer.addEventListener("click", e => {
       if (e.target.tagName === "BUTTON" && e.target.dataset.id) switchTab(Number(e.target.dataset.id));
@@ -867,7 +862,6 @@
         return m;
       });
       if (playerQuery) list = list.filter(m => (m.name || "").toLowerCase().indexOf(playerQuery) !== -1);
-      if (flaggedOnly) list = list.filter(m => Boolean(targetFlags[m.id]));
       list.sort((a, b) => {
         if (a.tier !== b.tier) return a.tier - b.tier;
         if (a.tier === 1) return (a.until || 9999999999) - (b.until || 9999999999);
