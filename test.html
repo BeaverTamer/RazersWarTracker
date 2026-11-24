@@ -42,11 +42,24 @@
     .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
     .faction-title-link { color: #fff; text-decoration: none; }
     .faction-title-link:hover { text-decoration: underline; color: #90caf9; }
-    .master-alarm-btn { background: #252525; border: 1px solid #383838; color: #aaa; cursor: pointer; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; }
-    .master-alarm-btn:hover { background: #333; color: #fff; }
+    .master-alarm-btn, .clear-flags-btn {
+      background: #252525;
+      border: 1px solid #383838;
+      color: #aaa;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 0.75rem;
+      border-radius: 4px;
+      height: 22px;
+      line-height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    .master-alarm-btn:hover, .clear-flags-btn:hover { background: #333; color: #fff; }
     .master-alarm-btn.alarm-active { background: rgba(253, 216, 53, 0.2); color: #fdd835; border-color: #fdd835; }
-    .clear-flags-btn { background: #252525; border: 1px solid #383838; color: #aaa; cursor: pointer; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; margin-left: 4px; }
-    .clear-flags-btn:hover { background: #333; color: #fff; }
+    .clear-flags-btn { margin-left: 4px; }
     .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
     .collapse-btn:hover { background: #333; color: #fff; }
     .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
