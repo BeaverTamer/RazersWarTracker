@@ -86,7 +86,9 @@
     .dot-Idle { background: #ff9800; }
     .dot-Offline { background: #555; }
     a.player-link { color: #fff; text-decoration: none; overflow: hidden; text-overflow: ellipsis; }
+    a.player-link.revivable-on { color: #ff5252; font-weight: 700; animation: none; }
     a.player-link:hover { text-decoration: underline; color: #90caf9; }
+    a.player-link.revivable-on:hover { color: #ff5252; }
     .last-act { color: #777; font-size: 0.72rem; flex-shrink: 0; }
     .alarm-btn { background: none; border: none; cursor: pointer; padding: 0; font-size: 0.75rem; opacity: 0.3; transition: opacity 0.2s; flex-shrink: 0; }
     .alarm-btn:hover { opacity: 0.7; }
@@ -237,6 +239,7 @@
     ];
     const FLAGS_DB_URL = "https://razerswartracker-default-rtdb.firebaseio.com";
     const FLAG_TTL_SEC = 600;
+    const REVIVE_PACE_MS = 2500;
 
     const CITY_CODES = [
       { keys: ["torn"], code: "TC" },
@@ -260,6 +263,8 @@
     let cachedData = { ally: null, enemy: null };
     let activeWarInfo = null;
     let apiIntervalId = null;
+    let reviveTimerId = null;
+    let reviveBusy = false;
     let playerQuery = "";
     let liveCountdownNodes = [];
     let liveFlightNodes = [];
@@ -270,8 +275,19 @@
     let targetFlags = {};
     try { targetFlags = JSON.parse(localStorage.getItem("razers_target_flags") || "{}"); } catch(e) { targetFlags = {}; }
 
+    // reviveCache[uid] = { revivable: boolean, at: number, hospUntil: number }
+    // When revivable === true, it stays until a hospital check finds revivable === false.
+    let reviveCache = {};
+    try { reviveCache = JSON.parse(localStorage.getItem("razers_revive_cache") || "{}"); } catch(e) { reviveCache = {}; }
+
+    let enemyHospTracker = {}; // uid -> { inHosp: boolean, until: number, checkedForUntil: number }
+
     function saveLocalFlags() {
       try { localStorage.setItem("razers_target_flags", JSON.stringify(targetFlags)); } catch(e) {}
+    }
+
+    function saveLocalRevives() {
+      try { localStorage.setItem("razers_revive_cache", JSON.stringify(reviveCache)); } catch(e) {}
     }
 
     function pruneExpiredFlags() {
@@ -286,17 +302,26 @@
       if (changed) saveLocalFlags();
     }
 
-    function clearFlagForHospitalized(factionData) {
-      if (!factionData || !factionData.members) return;
-      let changed = false;
+    function updateHospitalTrackers(factionData) {
+      if (!factionData || !Array.isArray(factionData.members)) return;
       for (let i = 0; i < factionData.members.length; i++) {
         const m = factionData.members[i];
-        if ((m.rawState === "Hospital" || m.rawState === "Jail") && targetFlags[m.id]) {
-          delete targetFlags[m.id];
-          changed = true;
+        const id = String(m.id);
+        const isHosp = m.rawState === "Hospital" && m.rawState !== "Fallen";
+        const prev = enemyHospTracker[id] || { inHosp: false, until: 0, checkedForUntil: 0 };
+        const hospMark = isHosp ? (Number(m.until) || 1) : 0;
+        let checkedForUntil = prev.checkedForUntil || 0;
+        if (isHosp && !prev.inHosp) {
+          checkedForUntil = 0;
+        } else if (isHosp && hospMark > 0 && checkedForUntil > 0 && hospMark > checkedForUntil + 15) {
+          checkedForUntil = 0;
         }
+        enemyHospTracker[id] = {
+          inHosp: isHosp,
+          until: hospMark,
+          checkedForUntil: checkedForUntil
+        };
       }
-      if (changed) saveLocalFlags();
     }
 
     function callerKey(uid, by) {
@@ -405,6 +430,120 @@
       } catch(err) {
         statusBarEl.textContent = "Flag sync read error: " + (err && err.message ? err.message : "Network error");
       }
+    }
+
+    async function syncRevivesFromRemote() {
+      const base = getDbBaseUrl();
+      if (!base) return;
+      try {
+        const res = await fetch(base + "/revives.json");
+        if (!res.ok) throw new Error("Revives HTTP " + res.status);
+        const remote = await res.json();
+        const next = { ...reviveCache };
+        if (remote && typeof remote === "object") {
+          for (const [uid, r] of Object.entries(remote)) {
+            if (r && typeof r.revivable === "boolean") {
+              const prev = next[String(uid)];
+              const remoteAt = Number(r.at || 0);
+              const prevAt = prev ? Number(prev.at || 0) : 0;
+              if (!prev || remoteAt >= prevAt) {
+                next[String(uid)] = {
+                  revivable: r.revivable,
+                  at: remoteAt || ((Date.now() / 1000) | 0),
+                  hospUntil: Number(r.hospUntil || (prev && prev.hospUntil) || 0)
+                };
+              }
+            }
+          }
+        }
+        reviveCache = next;
+        saveLocalRevives();
+      } catch(e) {
+        statusBarEl.textContent = "Revive sync error: " + (e && e.message ? e.message : "Failed to load /revives.json");
+      }
+    }
+
+    async function pushReviveToRemote(uid, payload) {
+      const base = getDbBaseUrl();
+      if (!base) return;
+      try {
+        await fetch(base + "/revives/" + encodeURIComponent(String(uid)) + ".json", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch(e) {}
+    }
+
+    function getHospitalizedEnemiesToCheck() {
+      const rosters = [];
+      if (cachedData.enemy && Array.isArray(cachedData.enemy.members)) rosters.push(cachedData.enemy.members);
+      if (cachedData.ally && Array.isArray(cachedData.ally.members)) rosters.push(cachedData.ally.members);
+      if (!rosters.length) return [];
+
+      const seen = new Set();
+      const queue = [];
+      for (let r = 0; r < rosters.length; r++) {
+        const members = rosters[r];
+        for (let i = 0; i < members.length; i++) {
+          const m = members[i];
+          const id = String(m.id);
+          if (seen.has(id)) continue;
+          seen.add(id);
+          if (m.rawState !== "Hospital" || m.rawState === "Fallen") continue;
+          const hospMark = Number(m.until) || 1;
+          const tr = enemyHospTracker[id];
+          const alreadyCheckedThisStint = Boolean(tr && tr.checkedForUntil > 0 && Math.abs(hospMark - tr.checkedForUntil) <= 15);
+          const cached = reviveCache[id];
+          const alreadyCheckedForUntil = Boolean(cached && cached.hospUntil > 0 && Math.abs(hospMark - Number(cached.hospUntil)) <= 15);
+          if (!alreadyCheckedThisStint && !alreadyCheckedForUntil) {
+            queue.push(m);
+          }
+        }
+      }
+      return queue;
+    }
+
+    async function processNextReviveCheck() {
+      if (document.hidden || reviveBusy) return;
+      const key = keyInput.value.trim();
+      if (!key) return;
+      const queue = getHospitalizedEnemiesToCheck();
+      if (queue.length === 0) return;
+      const target = queue[0];
+      const id = String(target.id);
+      const hospMark = Number(target.until) || 1;
+      reviveBusy = true;
+      try {
+        const data = await fetchTornApi("/v2/user/" + encodeURIComponent(id) + "/profile?key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
+        const prof = data.profile || data;
+        const rawRev = prof ? prof.revivable : undefined;
+        const isRevivable = rawRev === true || Number(rawRev) === 1;
+        const entry = {
+          revivable: isRevivable,
+          at: (Date.now() / 1000) | 0,
+          hospUntil: hospMark
+        };
+        reviveCache[id] = entry;
+        saveLocalRevives();
+        enemyHospTracker[id] = {
+          inHosp: true,
+          until: hospMark,
+          checkedForUntil: hospMark
+        };
+        await pushReviveToRemote(id, entry);
+        renderTables();
+      } catch(e) {
+        statusBarEl.textContent = "Revive check failed for " + target.name + " (" + id + "): " + (e && e.message ? e.message : "API error");
+      }
+      finally {
+        reviveBusy = false;
+      }
+    }
+
+    function setupReviveLoop() {
+      if (reviveTimerId) clearInterval(reviveTimerId);
+      reviveTimerId = setInterval(processNextReviveCheck, REVIVE_PACE_MS);
     }
 
     async function pushFlagToRemote(uid, payload, quiet) {
@@ -666,14 +805,17 @@
     }
     let flagsIntervalId = null;
     let lastFlagsJson = "";
+    let lastRevivesJson = "";
     function setupFlagsInterval() {
       if (flagsIntervalId) clearInterval(flagsIntervalId);
       flagsIntervalId = setInterval(async () => {
         if (document.hidden || !keyInput.value.trim()) return;
-        await syncFlagsFromRemote();
-        const currentJson = JSON.stringify(targetFlags);
-        if (currentJson !== lastFlagsJson) {
-          lastFlagsJson = currentJson;
+        await Promise.all([syncFlagsFromRemote(), syncRevivesFromRemote()]);
+        const currentFlagsJson = JSON.stringify(targetFlags);
+        const currentRevivesJson = JSON.stringify(reviveCache);
+        if (currentFlagsJson !== lastFlagsJson || currentRevivesJson !== lastRevivesJson) {
+          lastFlagsJson = currentFlagsJson;
+          lastRevivesJson = currentRevivesJson;
           renderTables();
         }
       }, 2000);
@@ -989,7 +1131,7 @@
       if (!key) return;
       statusBarEl.textContent = "Syncing live data...";
       try {
-        await syncFlagsFromRemote();
+        await Promise.all([syncFlagsFromRemote(), syncRevivesFromRemote()]);
         const userData = await fetchTornApi("/v2/user?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         const detectedName = (userData.profile && userData.profile.name) || userData.name;
         const detectedId = (userData.profile && (userData.profile.id || userData.profile.player_id)) || userData.id || userData.player_id || 0;
@@ -1001,12 +1143,14 @@
         }
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
+        updateHospitalTrackers(allyData);
         updateFlightTrackers(allyData, true);
         setFactionTitle(allyTitleLinkEl, allyData.name, allyData.ID, allyData.tagImage, allyData.tag);
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
+          updateHospitalTrackers(enemyData);
           updateFlightTrackers(enemyData, false);
           setFactionTitle(enemyTitleLinkEl, enemyData.name, enemyData.ID, enemyData.tagImage, enemyData.tag);
           updateWarBanner(warInfo, enemyData);
@@ -1018,7 +1162,8 @@
         renderTables();
         updateChains();
         updateMasterButtonStates();
-        statusBarEl.textContent = "Live • " + (currentRefreshInterval / 1000) + "s sync (3 calls) • Updated " + new Date().toLocaleTimeString();
+        const pendingRevives = getHospitalizedEnemiesToCheck().length;
+        statusBarEl.textContent = "Live • " + (currentRefreshInterval / 1000) + "s sync (3 calls)" + (pendingRevives > 0 ? " • " + pendingRevives + " revive checks queued" : "") + " • Updated " + new Date().toLocaleTimeString();
       } catch (err) {
         statusBarEl.textContent = "Torn API Error: " + err.message;
       }
@@ -1101,6 +1246,11 @@
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
         const actionCell = m.rawState === "Fallen" ? '<td style="color:#666;">-</td>' : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
+        const revEntry = reviveCache[String(m.id)];
+        const isRevivable = Boolean(revEntry && revEntry.revivable === true);
+        const nameClass = "player-link" + (isRevivable ? " revivable-on" : "");
+        const nameTitle = isRevivable ? "Revives ON" : "";
+
         const calls = getCalls(m.id);
         const latest = calls[0] || null;
         const mine = calls.find(c => c.by === currentUserName) || null;
@@ -1128,7 +1278,7 @@
           flagElapsedHtml = '<span class="flag-elapsed" data-at="' + latest.at + '">' + eText + '</span>';
         }
 
-        return '<tr class="' + rowFlagClass + '"><td><div class="player-stack"><div class="player-cell"><button class="' + (activeAlarms[m.id] ? "alarm-btn alarm-active" : "alarm-btn") + '" onclick="toggleAlarm(\'' + m.id + '\', this)">' + (activeAlarms[m.id] ? "🔔" : "🔕") + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="' + lastActClass + '">' + m.lastAct + '</span><button class="' + flagBtnClass + '" onclick="cycleTargetFlag(\'' + m.id + '\')" title="' + flagTitle + '">' + flagIcon + '</button></div>' + subLineHtml + '</div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span>' + flagElapsedHtml + '</td>' + actionCell + '</tr>';
+        return '<tr class="' + rowFlagClass + '"><td><div class="player-stack"><div class="player-cell"><button class="' + (activeAlarms[m.id] ? "alarm-btn alarm-active" : "alarm-btn") + '" onclick="toggleAlarm(\'' + m.id + '\', this)">' + (activeAlarms[m.id] ? "🔔" : "🔕") + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="' + nameClass + '" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank" title="' + nameTitle + '">' + m.name + '</a><span class="' + lastActClass + '">' + m.lastAct + '</span><button class="' + flagBtnClass + '" onclick="cycleTargetFlag(\'' + m.id + '\')" title="' + flagTitle + '">' + flagIcon + '</button></div>' + subLineHtml + '</div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span>' + flagElapsedHtml + '</td>' + actionCell + '</tr>';
       }).join("");
     }
     function renderTables() {
@@ -1180,6 +1330,7 @@
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) return;
       tickTimers();
+      processNextReviveCheck();
       if (keyInput.value.trim() && verifiedAge() >= VERIFY_MS) runVerify();
     });
     applyCollapseStates();
@@ -1216,6 +1367,7 @@
       clearSavedKey();
       keyInput.value = "";
       if (apiIntervalId) { clearInterval(apiIntervalId); apiIntervalId = null; }
+      if (reviveTimerId) { clearInterval(reviveTimerId); reviveTimerId = null; }
       if (verifyTimer) { clearTimeout(verifyTimer); verifyTimer = null; }
       boardStarted = false;
       document.getElementById("app").style.display = "none";
@@ -1244,7 +1396,7 @@
       document.getElementById("app").style.display = "";
       keyInput.value = key;
       saveApiKey(key);
-      if (!boardStarted) { boardStarted = true; setupApiInterval(); setupFlagsInterval(); }
+      if (!boardStarted) { boardStarted = true; setupApiInterval(); setupFlagsInterval(); setupReviveLoop(); }
       homeDetected = false;
       updateActiveTab();
       fetchAllData();
