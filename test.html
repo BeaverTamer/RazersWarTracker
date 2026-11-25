@@ -291,11 +291,20 @@
     try { targetFlags = JSON.parse(localStorage.getItem("razers_target_flags") || "{}"); } catch(e) { targetFlags = {}; }
 
     // reviveCache[uid] = { revivable: boolean, at: number, hospUntil: number }
-    // When revivable === true, it stays until a hospital check finds revivable === false.
+    // When revivable === true, it stays until a hospital check finds revivable === false or the war ends.
     let reviveCache = {};
     try { reviveCache = JSON.parse(localStorage.getItem("razers_revive_cache") || "{}"); } catch(e) { reviveCache = {}; }
 
     let enemyHospTracker = {}; // uid -> { inHosp: boolean, until: number, checkedForUntil: number }
+
+    // Tracks active war state per faction ID so we can auto-clear flags & revives when a war concludes.
+    // warStateHistory[factionId] = { active: boolean, warKey: string, oppId: number, oppMembers: string[] }
+    let warStateHistory = {};
+    try { warStateHistory = JSON.parse(localStorage.getItem("razers_war_history") || "{}"); } catch(e) { warStateHistory = {}; }
+
+    function saveWarStateHistory() {
+      try { localStorage.setItem("razers_war_history", JSON.stringify(warStateHistory)); } catch(e) {}
+    }
 
     function saveLocalFlags() {
       try { localStorage.setItem("razers_target_flags", JSON.stringify(targetFlags)); } catch(e) {}
@@ -454,20 +463,15 @@
         const res = await fetch(base + "/revives.json");
         if (!res.ok) throw new Error("Revives HTTP " + res.status);
         const remote = await res.json();
-        const next = { ...reviveCache };
+        const next = {};
         if (remote && typeof remote === "object") {
           for (const [uid, r] of Object.entries(remote)) {
             if (r && typeof r.revivable === "boolean") {
-              const prev = next[String(uid)];
-              const remoteAt = Number(r.at || 0);
-              const prevAt = prev ? Number(prev.at || 0) : 0;
-              if (!prev || remoteAt >= prevAt) {
-                next[String(uid)] = {
-                  revivable: r.revivable,
-                  at: remoteAt || ((Date.now() / 1000) | 0),
-                  hospUntil: Number(r.hospUntil || (prev && prev.hospUntil) || 0)
-                };
-              }
+              next[String(uid)] = {
+                revivable: r.revivable,
+                at: Number(r.at || ((Date.now() / 1000) | 0)),
+                hospUntil: Number(r.hospUntil || 0)
+              };
             }
           }
         }
@@ -488,6 +492,84 @@
           body: JSON.stringify(payload)
         });
       } catch(e) {}
+    }
+
+    async function autoClearPostWarState(memberIds) {
+      const idSet = new Set((memberIds || []).map(String));
+      if (!idSet.size) return;
+
+      const flagKeysToDelete = Object.keys(targetFlags).filter(k => idSet.has(splitFlagKey(k).uid));
+      const reviveIdsToDelete = Object.keys(reviveCache).filter(uid => idSet.has(String(uid)));
+
+      flagKeysToDelete.forEach(k => { delete targetFlags[k]; });
+      reviveIdsToDelete.forEach(uid => { delete reviveCache[uid]; });
+      idSet.forEach(uid => { delete enemyHospTracker[uid]; });
+
+      if (flagKeysToDelete.length) saveLocalFlags();
+      if (reviveIdsToDelete.length) saveLocalRevives();
+
+      if (flagKeysToDelete.length || reviveIdsToDelete.length) {
+        await Promise.all([
+          ...flagKeysToDelete.map(k => pushFlagToRemote(k, null, true)),
+          ...reviveIdsToDelete.map(uid => pushReviveToRemote(uid, null))
+        ]);
+      }
+    }
+
+    async function checkAndHandleWarEnd(factionId, allyData, warInfo, enemyData) {
+      const fKey = String(factionId);
+      const prev = warStateHistory[fKey] || null;
+      const allyMemberIds = (allyData && Array.isArray(allyData.members)) ? allyData.members.map(m => String(m.id)) : [];
+      const enemyMemberIds = (enemyData && Array.isArray(enemyData.members))
+        ? enemyData.members.map(m => String(m.id))
+        : (prev && Array.isArray(prev.oppMembers) ? prev.oppMembers : []);
+
+      let isOngoingWar = false;
+      let warEndedNow = false;
+      let warKey = "";
+
+      if (warInfo && warInfo.oppId) {
+        warKey = warInfo.type + "_" + warInfo.oppId + "_" + (warInfo.start || 0);
+        const absDiff = Math.abs(warInfo.allyScore - warInfo.enemyScore);
+        const reachedTarget = warInfo.target > 0 && absDiff >= warInfo.target;
+        const hasEndTimestamp = Number(warInfo.end || 0) > 0;
+        if (reachedTarget || hasEndTimestamp) {
+          warEndedNow = true;
+        } else {
+          isOngoingWar = true;
+        }
+      } else if (prev && prev.active) {
+        warEndedNow = true;
+      }
+
+      if (isOngoingWar) {
+        if (prev && prev.active && prev.warKey && prev.warKey !== warKey) {
+          const oldIds = Array.from(new Set([...allyMemberIds, ...(prev.oppMembers || [])]));
+          await autoClearPostWarState(oldIds);
+        }
+        warStateHistory[fKey] = {
+          active: true,
+          warKey: warKey,
+          oppId: Number(warInfo.oppId),
+          oppMembers: enemyMemberIds
+        };
+        saveWarStateHistory();
+      } else if (warEndedNow) {
+        const shouldClean = Boolean((prev && prev.active) || Object.keys(targetFlags).length > 0 || Object.keys(reviveCache).length > 0);
+        if (shouldClean && (!prev || prev.cleanedForWarKey !== (warKey || prev.warKey || "ended"))) {
+          const allWarMemberIds = Array.from(new Set([...allyMemberIds, ...enemyMemberIds]));
+          await autoClearPostWarState(allWarMemberIds);
+          warStateHistory[fKey] = {
+            active: false,
+            warKey: warKey || (prev && prev.warKey) || "",
+            cleanedForWarKey: warKey || (prev && prev.warKey) || "ended",
+            oppId: 0,
+            oppMembers: []
+          };
+          saveWarStateHistory();
+          statusBarEl.textContent = "War ended • Auto-cleared Med/On-It & Revive flags";
+        }
+      }
     }
 
     function sleepMs(ms) {
@@ -1062,7 +1144,7 @@
           if (oppId) {
             const myFac = war.factions[myId] || {};
             const oppFac = war.factions[oppId] || {};
-            return { type: "Ranked War", oppId: oppId, allyName: myFac.name || factionData.name || "Our Faction", allyScore: Number(myFac.score || 0), enemyName: oppFac.name || "Opponent", enemyScore: Number(oppFac.score || 0), target: (war.war && war.war.target) ? Number(war.war.target) : 0, start: (war.war && war.war.start) ? Number(war.war.start) : 0 };
+            return { type: "Ranked War", oppId: oppId, allyName: myFac.name || factionData.name || "Our Faction", allyScore: Number(myFac.score || 0), enemyName: oppFac.name || "Opponent", enemyScore: Number(oppFac.score || 0), target: (war.war && war.war.target) ? Number(war.war.target) : 0, start: (war.war && war.war.start) ? Number(war.war.start) : 0, end: (war.war && war.war.end) ? Number(war.war.end) : 0 };
           }
         }
       }
@@ -1070,14 +1152,14 @@
         for (const war of Object.values(factionData.territory_wars)) {
           const isAssault = Number(war.assaulting_faction) === myId;
           const oppId = isAssault ? Number(war.defending_faction) : Number(war.assaulting_faction);
-          if (oppId) return { type: "Territory War", oppId: oppId, allyName: factionData.name || "Our Faction", allyScore: Number(war.score || 0), enemyName: "Opponent", enemyScore: 0, target: Number(war.required_score || 0), start: 0 };
+          if (oppId) return { type: "Territory War", oppId: oppId, allyName: factionData.name || "Our Faction", allyScore: Number(war.score || 0), enemyName: "Opponent", enemyScore: 0, target: Number(war.required_score || 0), start: 0, end: Number(war.end || 0) };
         }
       }
       if (factionData.raid_wars) {
         for (const war of Object.values(factionData.raid_wars)) {
           const isRaider = Number(war.raiding_faction) === myId;
           const oppId = isRaider ? Number(war.defending_faction) : Number(war.raiding_faction);
-          if (oppId) return { type: "Raid War", oppId: oppId, allyName: factionData.name || "Our Faction", allyScore: Number(isRaider ? war.raider_score : war.defender_score) || 0, enemyName: "Opponent", enemyScore: Number(isRaider ? war.defender_score : war.raider_score) || 0, target: 0, start: 0 };
+          if (oppId) return { type: "Raid War", oppId: oppId, allyName: factionData.name || "Our Faction", allyScore: Number(isRaider ? war.raider_score : war.defender_score) || 0, enemyName: "Opponent", enemyScore: Number(isRaider ? war.defender_score : war.raider_score) || 0, target: 0, start: 0, end: Number(war.end || 0) };
         }
       }
       return null;
@@ -1121,7 +1203,7 @@
         const remainingFraction = Math.max(0.01, 1 - (currentDecayedSteps * 0.01));
         const originalTarget = Math.round(warInfo.target / remainingFraction);
         const hourlyDrop = originalTarget * 0.01;
-        if (absDiff >= warInfo.target) warEndCountdownEl.textContent = "• War Ended";
+        if (absDiff >= warInfo.target || Number(warInfo.end || 0) > 0) warEndCountdownEl.textContent = "• War Ended";
         else if (hourlyDrop <= 0) warEndCountdownEl.textContent = "";
         else {
           const totalStepsNeeded = Math.min(99, Math.ceil((originalTarget - absDiff) / hourlyDrop));
@@ -1144,14 +1226,14 @@
         if (data.wars.ranked && data.wars.ranked.factions) {
           const factionsMap = {};
           data.wars.ranked.factions.forEach(f => { factionsMap[f.id] = { name: f.name, score: f.score }; });
-          normalized.ranked_wars[data.wars.ranked.id || data.wars.ranked.war_id || "active"] = { factions: factionsMap, war: { target: data.wars.ranked.target, start: data.wars.ranked.start } };
+          normalized.ranked_wars[data.wars.ranked.id || data.wars.ranked.war_id || "active"] = { factions: factionsMap, war: { target: data.wars.ranked.target, start: data.wars.ranked.start, end: data.wars.ranked.end || 0 } };
         }
         if (Array.isArray(data.wars.territory) && data.wars.territory.length > 0) {
           const tw = data.wars.territory[0];
-          if (tw && tw.factions && tw.factions.length >= 2) normalized.territory_wars[tw.id || "active"] = { assaulting_faction: tw.factions[0].id, defending_faction: tw.factions[1].id, score: tw.factions[0].score, required_score: tw.target };
+          if (tw && tw.factions && tw.factions.length >= 2) normalized.territory_wars[tw.id || "active"] = { assaulting_faction: tw.factions[0].id, defending_faction: tw.factions[1].id, score: tw.factions[0].score, required_score: tw.target, end: tw.end || 0 };
         }
         const raidWar = data.wars.raid || (Array.isArray(data.wars.raids) ? data.wars.raids[0] : null);
-        if (raidWar && raidWar.factions && raidWar.factions.length >= 2) normalized.raid_wars[raidWar.id || "active"] = { raiding_faction: raidWar.factions[0].id, defending_faction: raidWar.factions[1].id, raider_score: raidWar.factions[0].score, defender_score: raidWar.factions[1].score };
+        if (raidWar && raidWar.factions && raidWar.factions.length >= 2) normalized.raid_wars[raidWar.id || "active"] = { raiding_faction: raidWar.factions[0].id, defending_faction: raidWar.factions[1].id, raider_score: raidWar.factions[0].score, defender_score: raidWar.factions[1].score, end: raidWar.end || 0 };
       }
       return normalized;
     }
@@ -1176,8 +1258,9 @@
         updateFlightTrackers(allyData, true);
         setFactionTitle(allyTitleLinkEl, allyData.name, allyData.ID, allyData.tagImage, allyData.tag);
         const warInfo = extractActiveWar(allyData, selectedFactionId);
+        let enemyData = null;
         if (warInfo && warInfo.oppId) {
-          const enemyData = await loadFactionCombined(warInfo.oppId, key);
+          enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
           updateHospitalTrackers(enemyData);
           updateFlightTrackers(enemyData, false);
@@ -1188,10 +1271,13 @@
           setFactionTitle(enemyTitleLinkEl, "No Active War", null, "", "—");
           updateWarBanner(null, null);
         }
+        await checkAndHandleWarEnd(selectedFactionId, allyData, warInfo, enemyData);
         renderTables();
         updateChains();
         updateMasterButtonStates();
-        statusBarEl.textContent = "Live • " + (currentRefreshInterval / 1000) + "s sync (3 calls) • Updated " + new Date().toLocaleTimeString();
+        if (!statusBarEl.textContent.startsWith("War ended")) {
+          statusBarEl.textContent = "Live • " + (currentRefreshInterval / 1000) + "s sync (3 calls) • Updated " + new Date().toLocaleTimeString();
+        }
       } catch (err) {
         statusBarEl.textContent = "Torn API Error: " + err.message;
       }
