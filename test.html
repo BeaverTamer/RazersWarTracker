@@ -302,20 +302,18 @@
       if (changed) saveLocalFlags();
     }
 
-    function updateEnemyHospitalTracker(enemyData) {
-      if (!enemyData || !Array.isArray(enemyData.members)) return;
-      for (let i = 0; i < enemyData.members.length; i++) {
-        const m = enemyData.members[i];
+    function updateHospitalTrackers(factionData) {
+      if (!factionData || !Array.isArray(factionData.members)) return;
+      for (let i = 0; i < factionData.members.length; i++) {
+        const m = factionData.members[i];
         const id = String(m.id);
         const isHosp = m.rawState === "Hospital" && m.rawState !== "Fallen";
         const prev = enemyHospTracker[id] || { inHosp: false, until: 0, checkedForUntil: 0 };
         const hospMark = isHosp ? (Number(m.until) || 1) : 0;
         let checkedForUntil = prev.checkedForUntil || 0;
         if (isHosp && !prev.inHosp) {
-          // Newly entered hospital: allow a fresh check for this hospital stint
           checkedForUntil = 0;
         } else if (isHosp && hospMark > 0 && checkedForUntil > 0 && hospMark > checkedForUntil + 15) {
-          // Hospital timer extended significantly into a new stint
           checkedForUntil = 0;
         }
         enemyHospTracker[id] = {
@@ -439,7 +437,7 @@
       if (!base) return;
       try {
         const res = await fetch(base + "/revives.json");
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("Revives HTTP " + res.status);
         const remote = await res.json();
         const next = { ...reviveCache };
         if (remote && typeof remote === "object") {
@@ -460,7 +458,9 @@
         }
         reviveCache = next;
         saveLocalRevives();
-      } catch(e) {}
+      } catch(e) {
+        statusBarEl.textContent = "Revive sync error: " + (e && e.message ? e.message : "Failed to load /revives.json");
+      }
     }
 
     async function pushReviveToRemote(uid, payload) {
@@ -476,19 +476,29 @@
     }
 
     function getHospitalizedEnemiesToCheck() {
-      if (!cachedData.enemy || !Array.isArray(cachedData.enemy.members)) return [];
+      const rosters = [];
+      if (cachedData.enemy && Array.isArray(cachedData.enemy.members)) rosters.push(cachedData.enemy.members);
+      if (cachedData.ally && Array.isArray(cachedData.ally.members)) rosters.push(cachedData.ally.members);
+      if (!rosters.length) return [];
+
+      const seen = new Set();
       const queue = [];
-      for (let i = 0; i < cachedData.enemy.members.length; i++) {
-        const m = cachedData.enemy.members[i];
-        if (m.rawState !== "Hospital" || m.rawState === "Fallen") continue;
-        const id = String(m.id);
-        const hospMark = Number(m.until) || 1;
-        const tr = enemyHospTracker[id];
-        const alreadyCheckedThisStint = Boolean(tr && tr.checkedForUntil > 0 && Math.abs(hospMark - tr.checkedForUntil) <= 15);
-        const cached = reviveCache[id];
-        const alreadyCheckedForUntil = Boolean(cached && cached.hospUntil > 0 && Math.abs(hospMark - Number(cached.hospUntil)) <= 15);
-        if (!alreadyCheckedThisStint && !alreadyCheckedForUntil) {
-          queue.push(m);
+      for (let r = 0; r < rosters.length; r++) {
+        const members = rosters[r];
+        for (let i = 0; i < members.length; i++) {
+          const m = members[i];
+          const id = String(m.id);
+          if (seen.has(id)) continue;
+          seen.add(id);
+          if (m.rawState !== "Hospital" || m.rawState === "Fallen") continue;
+          const hospMark = Number(m.until) || 1;
+          const tr = enemyHospTracker[id];
+          const alreadyCheckedThisStint = Boolean(tr && tr.checkedForUntil > 0 && Math.abs(hospMark - tr.checkedForUntil) <= 15);
+          const cached = reviveCache[id];
+          const alreadyCheckedForUntil = Boolean(cached && cached.hospUntil > 0 && Math.abs(hospMark - Number(cached.hospUntil)) <= 15);
+          if (!alreadyCheckedThisStint && !alreadyCheckedForUntil) {
+            queue.push(m);
+          }
         }
       }
       return queue;
@@ -507,7 +517,8 @@
       try {
         const data = await fetchTornApi("/v2/user/" + encodeURIComponent(id) + "/profile?key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         const prof = data.profile || data;
-        const isRevivable = Boolean(prof && Number(prof.revivable) === 1);
+        const rawRev = prof ? prof.revivable : undefined;
+        const isRevivable = rawRev === true || Number(rawRev) === 1;
         const entry = {
           revivable: isRevivable,
           at: (Date.now() / 1000) | 0,
@@ -522,7 +533,9 @@
         };
         await pushReviveToRemote(id, entry);
         renderTables();
-      } catch(e) {}
+      } catch(e) {
+        statusBarEl.textContent = "Revive check failed for " + target.name + " (" + id + "): " + (e && e.message ? e.message : "API error");
+      }
       finally {
         reviveBusy = false;
       }
@@ -1130,13 +1143,14 @@
         }
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
+        updateHospitalTrackers(allyData);
         updateFlightTrackers(allyData, true);
         setFactionTitle(allyTitleLinkEl, allyData.name, allyData.ID, allyData.tagImage, allyData.tag);
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
-          updateEnemyHospitalTracker(enemyData);
+          updateHospitalTrackers(enemyData);
           updateFlightTrackers(enemyData, false);
           setFactionTitle(enemyTitleLinkEl, enemyData.name, enemyData.ID, enemyData.tagImage, enemyData.tag);
           updateWarBanner(warInfo, enemyData);
