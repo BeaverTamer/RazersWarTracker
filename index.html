@@ -95,11 +95,12 @@
     .flag-btn:hover { opacity: 0.85; color: #ddd; }
     .flag-btn.flag-med { opacity: 1; color: #ef9a9a; }
     .flag-btn.flag-on_it { opacity: 1; color: #bdbdbd; }
-    .flag-subline { display: flex; align-items: center; gap: 3px; padding-left: 14px; font-size: 0.71rem; line-height: 1.15; padding-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 162px; }
+    .flag-subline { display: flex; align-items: center; gap: 3px; padding-left: 14px; font-size: 0.71rem; line-height: 1.15; padding-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px; }
     .flag-subline.flag-med { color: #ffcdd2; }
     .flag-subline.flag-on_it { color: #cfd8dc; }
     .flag-arrow { color: #888; font-weight: 700; flex-shrink: 0; }
     .flag-by { color: #a5a5a5; overflow: hidden; text-overflow: ellipsis; }
+    .flag-by-latest { color: #fff; font-weight: 700; }
     .Okay { color: #66bb6a; }
     .Hospital { color: #ef5350; font-weight: 600; }
     .Jail { color: #ffa726; font-weight: 600; }
@@ -114,7 +115,8 @@
       body { padding: 6px; }
       table { font-size: 0.76rem; }
       td, th { padding: 0 3px; }
-      .player-cell, .flag-subline { max-width: 114px; }
+      .player-cell { max-width: 114px; }
+      .flag-subline { max-width: 150px; }
       .timer { font-size: 0.75rem; padding: 1px 2px; }
       a.atk-btn { padding: 2px 5px; font-size: 0.72rem; }
       input { width: 110px; }
@@ -195,7 +197,8 @@
           <button class="collapse-btn" id="allyCollapseBtn" onclick="togglePanel('ally')">[-]</button>
           <h2><a id="allyTitleLink" class="faction-title-link" href="#" target="_blank" title="Razers">Razers</a></h2>
           <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
-          <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear flags you set on this side">+⚔ Clear</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear every flag you set, on every faction">+⚔ Clear</button>
+          <button class="clear-flags-btn" id="masterClearBtn" style="display:none" onclick="masterClearAllFlags()" title="Clear every flag on the two factions on this page">⚔ All</button>
         </div>
         <span class="chain-badge" id="allyChain">⛓️ --</span>
       </div>
@@ -212,7 +215,7 @@
           <button class="collapse-btn" id="enemyCollapseBtn" onclick="togglePanel('enemy')">[-]</button>
           <h2><a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank" title="Warring Opponent">Opponent</a></h2>
           <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
-          <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear flags you set on this side">+⚔ Clear</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear every flag you set, on every faction">+⚔ Clear</button>
         </div>
         <span class="chain-badge" id="enemyChain">⛓️ --</span>
       </div>
@@ -253,6 +256,7 @@
     let homeDetected = Boolean(sessionStorage.getItem("razers_tab"));
     let myCityCode = "TC";
     let currentUserName = sessionStorage.getItem("razers_user_name") || "Razer";
+    let currentUserId = Number(sessionStorage.getItem("razers_user_id") || 0);
     let cachedData = { ally: null, enemy: null };
     let activeWarInfo = null;
     let apiIntervalId = null;
@@ -295,6 +299,86 @@
       if (changed) saveLocalFlags();
     }
 
+    function callerKey(uid, by) {
+      return String(uid) + "\~" + encodeURIComponent(String(by || ""));
+    }
+    function splitFlagKey(key) {
+      const s = String(key);
+      const i = s.indexOf("\~");
+      if (i === -1) return { uid: s, personal: false };
+      return { uid: s.slice(0, i), personal: true };
+    }
+    function escHtml(s) {
+      return String(s || "").replace(/[&<>"']/g, ch => {
+        if (ch === "&") return "&" + "amp;";
+        if (ch === "<") return "&" + "lt;";
+        if (ch === ">") return "&" + "gt;";
+        if (ch === '"') return "&" + "quot;";
+        return "&" + "#39;";
+      });
+    }
+    function getCalls(uid) {
+      const id = String(uid);
+      const calls = [];
+      let legacy = null;
+      for (const [k, f] of Object.entries(targetFlags)) {
+        if (!f || (f.type !== "med" && f.type !== "on_it") || !f.by) continue;
+        const p = splitFlagKey(k);
+        if (p.uid !== id) continue;
+        if (p.personal) calls.push(f);
+        else legacy = f;
+      }
+      if (!calls.length && legacy) calls.push(legacy);
+      calls.sort((a, b) => Number(b.at) - Number(a.at));
+      return calls;
+    }
+    function migrateLegacy(id) {
+      const bare = targetFlags[id];
+      const hasPersonal = Object.keys(targetFlags).some(k => {
+        const p = splitFlagKey(k);
+        return p.personal && p.uid === id;
+      });
+      if (!hasPersonal && bare && bare.by) {
+        const k = callerKey(id, bare.by);
+        targetFlags[k] = { type: bare.type, by: bare.by, at: bare.at };
+        pushFlagToRemote(k, targetFlags[k], true);
+      }
+    }
+    function refreshPrimaryLocal(id) {
+      const calls = getCalls(id);
+      if (!calls.length) {
+        delete targetFlags[id];
+        return null;
+      }
+      const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at) };
+      targetFlags[id] = latest;
+      return latest;
+    }
+    function isBeaverTamer() {
+      return String(currentUserName || "").replace(/\s+/g, "").toLowerCase() === "beavertamer";
+    }
+    function canMasterClear() {
+      if (isBeaverTamer()) return true;
+      const fac = cachedData.ally;
+      if (!fac || !currentUserId) return false;
+      return currentUserId === Number(fac.leaderId) || currentUserId === Number(fac.coLeaderId);
+    }
+    function updateMasterClearVisibility() {
+      const btn = document.getElementById("masterClearBtn");
+      if (!btn) return;
+      btn.style.display = canMasterClear() ? "inline-flex" : "none";
+    }
+    function rememberUser(name, id) {
+      if (name) {
+        currentUserName = String(name);
+        sessionStorage.setItem("razers_user_name", currentUserName);
+      }
+      const n = Number(id || 0);
+      if (n) {
+        currentUserId = n;
+        sessionStorage.setItem("razers_user_id", String(n));
+      }
+    }
     function getDbBaseUrl() {
       return FLAGS_DB_URL.trim().replace(/\/+$/, "");
     }
@@ -312,7 +396,7 @@
         if (remote && typeof remote === "object") {
           for (const [uid, f] of Object.entries(remote)) {
             if (f && (f.type === "med" || f.type === "on_it") && f.by && f.at && (now - Number(f.at)) < FLAG_TTL_SEC) {
-              next[String(uid)] = { type: f.type, by: String(f.by).slice(0, 24), at: Number(f.at) };
+              next[String(uid)] = { type: f.type, by: String(f.by), at: Number(f.at) };
             }
           }
         }
@@ -323,7 +407,7 @@
       }
     }
 
-    async function pushFlagToRemote(uid, payload) {
+    async function pushFlagToRemote(uid, payload, quiet) {
       const base = getDbBaseUrl();
       if (!base) return;
       try {
@@ -333,7 +417,7 @@
           body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error("HTTP " + res.status);
-        statusBarEl.textContent = "Flag synced to Firebase (" + new Date().toLocaleTimeString() + ")";
+        if (!quiet) statusBarEl.textContent = "Flag synced to Firebase (" + new Date().toLocaleTimeString() + ")";
       } catch(err) {
         statusBarEl.textContent = "Flag sync write error: " + (err && err.message ? err.message : "Network error");
       }
@@ -341,7 +425,9 @@
 
     function cycleTargetFlag(uid) {
       pruneExpiredFlags();
-      const key = String(uid);
+      const id = String(uid);
+      migrateLegacy(id);
+      const key = callerKey(id, currentUserName);
       const cur = targetFlags[key];
       const now = (Date.now() / 1000) | 0;
       let nextVal = null;
@@ -353,34 +439,83 @@
         targetFlags[key] = nextVal;
       } else {
         delete targetFlags[key];
+        if (targetFlags[id] && targetFlags[id].by === currentUserName) delete targetFlags[id];
       }
+      const primary = refreshPrimaryLocal(id);
       saveLocalFlags();
       renderTables();
-      pushFlagToRemote(key, nextVal).then(() => {
+      pushFlagToRemote(key, nextVal, true).then(() => pushFlagToRemote(id, primary, true)).then(() => {
+        statusBarEl.textContent = "Flag synced to Firebase (" + new Date().toLocaleTimeString() + ")";
         setTimeout(syncFlagsFromRemote, 800);
       });
     }
 
-    function clearFactionFlags(type) {
-      const factionData = type === 'ally' ? cachedData.ally : cachedData.enemy;
-      if (!factionData || !factionData.members) return;
+    function clearFactionFlags() {
+      const ids = new Set();
+      Object.keys(targetFlags).forEach(k => {
+        const f = targetFlags[k];
+        if (f && f.by === currentUserName) ids.add(splitFlagKey(k).uid);
+      });
+      if (!ids.size) {
+        statusBarEl.textContent = "No flags set by you";
+        return;
+      }
       let cleared = 0;
-      for (let i = 0; i < factionData.members.length; i++) {
-        const id = String(factionData.members[i].id);
-        const flag = targetFlags[id];
-        if (flag && flag.by === currentUserName) {
+      ids.forEach(id => {
+        Object.keys(targetFlags).forEach(k => {
+          const p = splitFlagKey(k);
+          if (!p.personal || p.uid !== id) return;
+          const f = targetFlags[k];
+          if (f && f.by === currentUserName) {
+            delete targetFlags[k];
+            pushFlagToRemote(k, null, true);
+            cleared++;
+          }
+        });
+        const personalLeft = Object.keys(targetFlags).some(k => {
+          const p = splitFlagKey(k);
+          return p.personal && p.uid === id;
+        });
+        const bare = targetFlags[id];
+        if (!personalLeft && bare && bare.by === currentUserName) {
           delete targetFlags[id];
-          pushFlagToRemote(id, null);
+          pushFlagToRemote(id, null, true);
           cleared++;
+          return;
         }
+        const calls = getCalls(id);
+        if (!calls.length) {
+          if (targetFlags[id]) delete targetFlags[id];
+          pushFlagToRemote(id, null, true);
+        } else {
+          const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at) };
+          targetFlags[id] = latest;
+          pushFlagToRemote(id, latest, true);
+        }
+      });
+      saveLocalFlags();
+      renderTables();
+      statusBarEl.textContent = "Cleared " + cleared + " of your flag(s) on every faction";
+    }
+
+    async function masterClearAllFlags() {
+      if (!canMasterClear()) return;
+      const ids = new Set();
+      [cachedData.ally, cachedData.enemy].forEach(fac => {
+        if (!fac || !fac.members) return;
+        fac.members.forEach(m => ids.add(String(m.id)));
+      });
+      const keys = Object.keys(targetFlags).filter(k => ids.has(splitFlagKey(k).uid));
+      if (!keys.length) {
+        statusBarEl.textContent = "No flags on the two factions on this page";
+        return;
       }
-      if (cleared > 0) {
-        saveLocalFlags();
-        renderTables();
-        statusBarEl.textContent = "Cleared " + cleared + " of your flag(s) on " + type + " side";
-      } else {
-        statusBarEl.textContent = "No flags set by you on " + type + " side";
-      }
+      if (!confirm("Clear every flag on the two factions on this page?")) return;
+      keys.forEach(k => { delete targetFlags[k]; });
+      saveLocalFlags();
+      renderTables();
+      await Promise.all(keys.map(k => pushFlagToRemote(k, null, true)));
+      statusBarEl.textContent = "Cleared flags on the two factions on this page";
     }
 
     function toggleAlarm(id, btn) {
@@ -414,6 +549,7 @@
         btn.classList.toggle("alarm-active", allEnemyActive || someEnemyActive);
         btn.textContent = allEnemyActive ? "🔔 All On" : (someEnemyActive ? "🔔 Some" : "🔕 All Off");
       }
+      updateMasterClearVisibility();
     }
     function playAllyChime() {
       try {
@@ -516,6 +652,13 @@
     let currentRefreshInterval = Number(localStorage.getItem("razers_refresh_ms")) || 15000;
     const intervalSelect = document.getElementById("refreshIntervalSelect");
     intervalSelect.value = String(currentRefreshInterval);
+    function setupApiInterval() {
+      if (apiIntervalId) clearInterval(apiIntervalId);
+      apiIntervalId = setInterval(() => {
+        if (document.hidden || !keyInput.value.trim()) return;
+        fetchAllData();
+      }, currentRefreshInterval);
+    }
     function updateRefreshInterval() {
       currentRefreshInterval = Number(intervalSelect.value);
       localStorage.setItem("razers_refresh_ms", currentRefreshInterval);
@@ -819,7 +962,7 @@
     async function loadFactionCombined(id, key) {
       const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
       const basic = data.basic || data;
-      const normalized = { ID: basic.id || basic.ID || id, name: basic.name || "Faction", tag: basic.tag || "", tagImage: basic.tag_image || basic.tagImage || "", chain: data.chain || null, members: [], ranked_wars: {}, territory_wars: {}, raid_wars: {} };
+      const normalized = { ID: basic.id || basic.ID || id, name: basic.name || "Faction", tag: basic.tag || "", tagImage: basic.tag_image || basic.tagImage || "", leaderId: Number(basic.leader_id || basic.leader || 0), coLeaderId: Number(basic["co-leader_id"] || basic.co_leader_id || basic.co_leader || 0), chain: data.chain || null, members: [], ranked_wars: {}, territory_wars: {}, raid_wars: {} };
       const rawMembers = Array.isArray(data.members) ? data.members : (data.members && typeof data.members === "object" ? Object.entries(data.members).map(([k, v]) => ({ ...v, id: v.id || k })) : []);
       for (let i = 0; i < rawMembers.length; i++) {
         const m = rawMembers[i];
@@ -849,10 +992,8 @@
         await syncFlagsFromRemote();
         const userData = await fetchTornApi("/v2/user?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         const detectedName = (userData.profile && userData.profile.name) || userData.name;
-        if (detectedName) {
-          currentUserName = String(detectedName);
-          sessionStorage.setItem("razers_user_name", currentUserName);
-        }
+        const detectedId = (userData.profile && (userData.profile.id || userData.profile.player_id)) || userData.id || userData.player_id || 0;
+        if (detectedName || detectedId) rememberUser(detectedName, detectedId);
         const status = (userData.profile && userData.profile.status) || userData.status || {};
         if (status && status.state) {
           if (status.state === "Traveling") { myCityCode = "TRAVEL"; myLocBadgeEl.textContent = "Your Location: Flying"; }
@@ -860,14 +1001,12 @@
         }
         const allyData = await loadFactionCombined(selectedFactionId, key);
         cachedData.ally = allyData;
-        clearFlagForHospitalized(allyData);
         updateFlightTrackers(allyData, true);
         setFactionTitle(allyTitleLinkEl, allyData.name, allyData.ID, allyData.tagImage, allyData.tag);
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
-          clearFlagForHospitalized(enemyData);
           updateFlightTrackers(enemyData, false);
           setFactionTitle(enemyTitleLinkEl, enemyData.name, enemyData.ID, enemyData.tagImage, enemyData.tag);
           updateWarBanner(warInfo, enemyData);
@@ -950,7 +1089,7 @@
         let timerText = "-", alertClass = "", dataAttrs = "";
         if (m.rawState === "Traveling" && flightStarts[m.id]) {
           const fInfo = flightStarts[m.id];
-          const prefix = fInfo.exact ? "+" : "~+";
+          const prefix = fInfo.exact ? "+" : "\~+";
           timerText = prefix + formatElapsedFlight(Math.max(0, now - fInfo.start));
           alertClass = "timer-flight";
           dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '" data-id="' + m.id + '" data-ally="' + (isAlly ? "1" : "0") + '"';
@@ -962,27 +1101,31 @@
         const readyClass = isAttackReady(m.rawState, diff, m.city) ? " atk-ready" : "";
         const actionCell = m.rawState === "Fallen" ? '<td style="color:#666;">-</td>' : '<td><a class="atk-btn' + readyClass + '" href="https://www.torn.com/page.php?sid=attack&user2ID=' + m.id + '" target="_blank">Attack</a></td>';
 
-        const flag = targetFlags[m.id];
-        const flagType = flag ? flag.type : "";
-        const flagIcon = flagType === "med" ? "+" : (flagType === "on_it" ? "⚔" : "+");
-        const flagBtnClass = "flag-btn" + (flagType ? " flag-" + flagType : "");
-        const flagTitle = flagType === "med"
-          ? "Medding (" + flag.by + ") — Tap for On It"
-          : (flagType === "on_it" ? "On It (" + flag.by + ") — Tap to Clear" : "Flag as Medding");
+        const calls = getCalls(m.id);
+        const latest = calls[0] || null;
+        const mine = calls.find(c => c.by === currentUserName) || null;
+        const flagType = latest ? latest.type : "";
+        const myType = mine ? mine.type : "";
+        const flagIcon = myType === "med" ? "+" : (myType === "on_it" ? "⚔" : "+");
+        const flagBtnClass = "flag-btn" + (myType ? " flag-" + myType : "");
+        const flagTitle = mine
+          ? (myType === "med" ? "Medding. Tap for On It." : "On It. Tap for Off.")
+          : "Tap for Medding, again for On It, again for Off.";
         const rowFlagClass = (landedTimestamps[m.id] ? " row-landed" : "") + (flagType ? " row-flagged-" + flagType : "");
+        const namesHtml = calls.map((c, i) => '<span class="flag-by' + (i === 0 ? " flag-by-latest" : "") + '">· ' + escHtml(c.by) + " " + (c.type === "on_it" ? "⚔" : "+") + '</span>').join("");
         const subLineHtml = flagType
-          ? '<div class="flag-subline flag-' + flagType + '"><span class="flag-arrow">↳</span><span>' + (flagType === "med" ? "+ Medding" : "⚔ On It") + '</span><span class="flag-by">· ' + flag.by + '</span></div>'
+          ? '<div class="flag-subline flag-' + flagType + '"><span class="flag-arrow">↳</span><span>' + (flagType === "med" ? "+ Medding" : "⚔ On It") + '</span>' + namesHtml + '</div>'
           : "";
 
         let lastActClass = "last-act";
 
         let flagElapsedHtml = "";
-        if (flag && flag.at) {
-          const elapsed = Math.max(0, now - flag.at);
+        if (latest && latest.at) {
+          const elapsed = Math.max(0, now - Number(latest.at));
           const em = Math.floor(elapsed / 60);
           const es = elapsed % 60;
           const eText = em > 0 ? em + "m" + (es < 10 ? "0" : "") + es + "s" : es + "s";
-          flagElapsedHtml = '<span class="flag-elapsed" data-at="' + flag.at + '">' + eText + '</span>';
+          flagElapsedHtml = '<span class="flag-elapsed" data-at="' + latest.at + '">' + eText + '</span>';
         }
 
         return '<tr class="' + rowFlagClass + '"><td><div class="player-stack"><div class="player-cell"><button class="' + (activeAlarms[m.id] ? "alarm-btn alarm-active" : "alarm-btn") + '" onclick="toggleAlarm(\'' + m.id + '\', this)">' + (activeAlarms[m.id] ? "🔔" : "🔕") + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="' + lastActClass + '">' + m.lastAct + '</span><button class="' + flagBtnClass + '" onclick="cycleTargetFlag(\'' + m.id + '\')" title="' + flagTitle + '">' + flagIcon + '</button></div>' + subLineHtml + '</div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span>' + flagElapsedHtml + '</td>' + actionCell + '</tr>';
@@ -1065,10 +1208,8 @@
       const faction = data.faction || {};
       const profile = data.profile || {};
       const pName = profile.name || data.name;
-      if (pName) {
-        currentUserName = String(pName);
-        sessionStorage.setItem("razers_user_name", currentUserName);
-      }
+      const pId = profile.id || profile.player_id || data.id || data.player_id || 0;
+      if (pName || pId) rememberUser(pName, pId);
       return { factionId: Number(faction.id || faction.faction_id || profile.faction_id || 0), factionName: faction.name || faction.faction_name || "no faction", playerName: pName || "This key" };
     }
     function lockBoard(message) {
