@@ -198,7 +198,7 @@
           <h2><a id="allyTitleLink" class="faction-title-link" href="#" target="_blank" title="Razers">Razers</a></h2>
           <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
           <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear every flag you set, on every faction">+⚔ Clear</button>
-          <button class="clear-flags-btn" id="masterClearBtn" style="display:none" onclick="masterClearAllFlags()" title="Clear every flag on every faction">⚔ All</button>
+          <button class="clear-flags-btn" id="masterClearBtn" style="display:none" onclick="masterClearAllFlags()" title="Clear every flag on the two factions on this page">⚔ All</button>
         </div>
         <span class="chain-badge" id="allyChain">⛓️ --</span>
       </div>
@@ -439,6 +439,7 @@
         targetFlags[key] = nextVal;
       } else {
         delete targetFlags[key];
+        if (targetFlags[id] && targetFlags[id].by === currentUserName) delete targetFlags[id];
       }
       const primary = refreshPrimaryLocal(id);
       saveLocalFlags();
@@ -499,13 +500,22 @@
 
     async function masterClearAllFlags() {
       if (!canMasterClear()) return;
-      if (!confirm("Clear every flag on every faction?")) return;
-      const keys = Object.keys(targetFlags);
-      targetFlags = {};
+      const ids = new Set();
+      [cachedData.ally, cachedData.enemy].forEach(fac => {
+        if (!fac || !fac.members) return;
+        fac.members.forEach(m => ids.add(String(m.id)));
+      });
+      const keys = Object.keys(targetFlags).filter(k => ids.has(splitFlagKey(k).uid));
+      if (!keys.length) {
+        statusBarEl.textContent = "No flags on the two factions on this page";
+        return;
+      }
+      if (!confirm("Clear every flag on the two factions on this page?")) return;
+      keys.forEach(k => { delete targetFlags[k]; });
       saveLocalFlags();
       renderTables();
       await Promise.all(keys.map(k => pushFlagToRemote(k, null, true)));
-      statusBarEl.textContent = "Cleared all flags on every faction";
+      statusBarEl.textContent = "Cleared flags on the two factions on this page";
     }
 
     function toggleAlarm(id, btn) {
@@ -642,6 +652,13 @@
     let currentRefreshInterval = Number(localStorage.getItem("razers_refresh_ms")) || 15000;
     const intervalSelect = document.getElementById("refreshIntervalSelect");
     intervalSelect.value = String(currentRefreshInterval);
+    function setupApiInterval() {
+      if (apiIntervalId) clearInterval(apiIntervalId);
+      apiIntervalId = setInterval(() => {
+        if (document.hidden || !keyInput.value.trim()) return;
+        fetchAllData();
+      }, currentRefreshInterval);
+    }
     function updateRefreshInterval() {
       currentRefreshInterval = Number(intervalSelect.value);
       localStorage.setItem("razers_refresh_ms", currentRefreshInterval);
@@ -1092,8 +1109,8 @@
         const flagIcon = myType === "med" ? "+" : (myType === "on_it" ? "⚔" : "+");
         const flagBtnClass = "flag-btn" + (myType ? " flag-" + myType : "");
         const flagTitle = mine
-          ? (myType === "med" ? "You are medding. Tap for On It. Others can call this too." : "You are on it. Tap to drop your call.")
-          : "Call medding. Someone else can call it too.";
+          ? (myType === "med" ? "Medding. Tap for On It." : "On It. Tap for Off.")
+          : "Tap for Medding, again for On It, again for Off.";
         const rowFlagClass = (landedTimestamps[m.id] ? " row-landed" : "") + (flagType ? " row-flagged-" + flagType : "");
         const namesHtml = calls.map((c, i) => '<span class="flag-by' + (i === 0 ? " flag-by-latest" : "") + '">· ' + escHtml(c.by) + " " + (c.type === "on_it" ? "⚔" : "+") + '</span>').join("");
         const subLineHtml = flagType
