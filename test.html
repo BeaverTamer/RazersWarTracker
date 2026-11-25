@@ -44,7 +44,7 @@
     .faction-title-link:hover { opacity: 0.85; }
     .faction-tag { height: 22px; width: auto; max-width: 88px; object-fit: contain; display: block; }
     .faction-short-tag { font-size: 0.82rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
-    .master-alarm-btn, .clear-flags-btn {
+    .master-alarm-btn, .clear-flags-btn, .med-scan-btn {
       background: #252525;
       border: 1px solid #383838;
       color: #aaa;
@@ -60,7 +60,9 @@
       box-sizing: border-box;
       flex-shrink: 0;
     }
-    .master-alarm-btn:hover, .clear-flags-btn:hover { background: #333; color: #fff; }
+    .master-alarm-btn:hover, .clear-flags-btn:hover, .med-scan-btn:hover { background: #333; color: #fff; }
+    .med-scan-btn.scanning { border-color: #ef5350; color: #fff; background: rgba(239, 83, 80, 0.22); }
+    .med-scan-icon { width: 15px; height: 15px; display: block; flex-shrink: 0; }
     .master-alarm-btn.alarm-active { background: rgba(253, 216, 53, 0.2); color: #fdd835; border-color: #fdd835; }
     .clear-flags-btn { margin-left: 4px; }
     .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
@@ -198,6 +200,13 @@
         <div class="panel-header-left">
           <button class="collapse-btn" id="allyCollapseBtn" onclick="togglePanel('ally')">[-]</button>
           <h2><a id="allyTitleLink" class="faction-title-link" href="#" target="_blank" title="Razers">Razers</a></h2>
+          <button class="med-scan-btn" id="allyReviveBtn" onclick="scanFactionHospitalRevives('ally')" title="Check hospitalized members on this faction for revives">
+            <svg class="med-scan-icon" viewBox="0 0 100 100" aria-hidden="true">
+              <circle cx="50" cy="50" r="44" fill="#ffffff" stroke="#111111" stroke-width="7" />
+              <rect x="40" y="22" width="20" height="56" fill="#e52521" />
+              <rect x="22" y="40" width="56" height="20" fill="#e52521" />
+            </svg>
+          </button>
           <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
           <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear every flag you set, on every faction">+⚔ Clear</button>
           <button class="clear-flags-btn" id="masterClearBtn" style="display:none" onclick="masterClearAllFlags()" title="Clear every flag on the two factions on this page">⚔ All</button>
@@ -216,6 +225,13 @@
         <div class="panel-header-left">
           <button class="collapse-btn" id="enemyCollapseBtn" onclick="togglePanel('enemy')">[-]</button>
           <h2><a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank" title="Warring Opponent">Opponent</a></h2>
+          <button class="med-scan-btn" id="enemyReviveBtn" onclick="scanFactionHospitalRevives('enemy')" title="Check hospitalized members on this faction for revives">
+            <svg class="med-scan-icon" viewBox="0 0 100 100" aria-hidden="true">
+              <circle cx="50" cy="50" r="44" fill="#ffffff" stroke="#111111" stroke-width="7" />
+              <rect x="40" y="22" width="20" height="56" fill="#e52521" />
+              <rect x="22" y="40" width="56" height="20" fill="#e52521" />
+            </svg>
+          </button>
           <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
           <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear every flag you set, on every faction">+⚔ Clear</button>
         </div>
@@ -239,7 +255,7 @@
     ];
     const FLAGS_DB_URL = "https://razerswartracker-default-rtdb.firebaseio.com";
     const FLAG_TTL_SEC = 600;
-    const REVIVE_PACE_MS = 2500;
+    const REVIVE_STEP_DELAY_MS = 350;
 
     const CITY_CODES = [
       { keys: ["torn"], code: "TC" },
@@ -263,8 +279,7 @@
     let cachedData = { ally: null, enemy: null };
     let activeWarInfo = null;
     let apiIntervalId = null;
-    let reviveTimerId = null;
-    let reviveBusy = false;
+    let reviveScanBusySide = null;
     let playerQuery = "";
     let liveCountdownNodes = [];
     let liveFlightNodes = [];
@@ -475,75 +490,89 @@
       } catch(e) {}
     }
 
-    function getHospitalizedEnemiesToCheck() {
-      const rosters = [];
-      if (cachedData.enemy && Array.isArray(cachedData.enemy.members)) rosters.push(cachedData.enemy.members);
-      if (cachedData.ally && Array.isArray(cachedData.ally.members)) rosters.push(cachedData.ally.members);
-      if (!rosters.length) return [];
+    function sleepMs(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
+    async function scanFactionHospitalRevives(side) {
+      if (reviveScanBusySide) return;
+      const key = keyInput.value.trim();
+      if (!key) {
+        statusBarEl.textContent = "Enter a Public Torn API key first.";
+        return;
+      }
+      const factionData = side === "ally" ? cachedData.ally : cachedData.enemy;
+      if (!factionData || !Array.isArray(factionData.members)) {
+        statusBarEl.textContent = "No faction roster loaded to check hospital revives.";
+        return;
+      }
+
+      const hospTargets = [];
       const seen = new Set();
-      const queue = [];
-      for (let r = 0; r < rosters.length; r++) {
-        const members = rosters[r];
-        for (let i = 0; i < members.length; i++) {
-          const m = members[i];
-          const id = String(m.id);
-          if (seen.has(id)) continue;
-          seen.add(id);
-          if (m.rawState !== "Hospital" || m.rawState === "Fallen") continue;
-          const hospMark = Number(m.until) || 1;
-          const tr = enemyHospTracker[id];
-          const alreadyCheckedThisStint = Boolean(tr && tr.checkedForUntil > 0 && Math.abs(hospMark - tr.checkedForUntil) <= 15);
-          const cached = reviveCache[id];
-          const alreadyCheckedForUntil = Boolean(cached && cached.hospUntil > 0 && Math.abs(hospMark - Number(cached.hospUntil)) <= 15);
-          if (!alreadyCheckedThisStint && !alreadyCheckedForUntil) {
-            queue.push(m);
-          }
+      for (let i = 0; i < factionData.members.length; i++) {
+        const m = factionData.members[i];
+        const id = String(m.id);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        if (m.rawState !== "Hospital" || m.rawState === "Fallen") continue;
+        const hospMark = Number(m.until) || 1;
+        const tr = enemyHospTracker[id];
+        const alreadyCheckedThisStint = Boolean(tr && tr.checkedForUntil > 0 && Math.abs(hospMark - tr.checkedForUntil) <= 15);
+        const cached = reviveCache[id];
+        const alreadyCheckedForUntil = Boolean(cached && cached.hospUntil > 0 && Math.abs(hospMark - Number(cached.hospUntil)) <= 15);
+        if (!alreadyCheckedThisStint && !alreadyCheckedForUntil) {
+          hospTargets.push(m);
         }
       }
-      return queue;
-    }
 
-    async function processNextReviveCheck() {
-      if (document.hidden || reviveBusy) return;
-      const key = keyInput.value.trim();
-      if (!key) return;
-      const queue = getHospitalizedEnemiesToCheck();
-      if (queue.length === 0) return;
-      const target = queue[0];
-      const id = String(target.id);
-      const hospMark = Number(target.until) || 1;
-      reviveBusy = true;
+      if (hospTargets.length === 0) {
+        statusBarEl.textContent = "All hospitalized members on " + (factionData.name || side) + " are already checked for this hospital stay.";
+        return;
+      }
+
+      reviveScanBusySide = side;
+      const btn = document.getElementById(side === "ally" ? "allyReviveBtn" : "enemyReviveBtn");
+      if (btn) btn.classList.add("scanning");
+
+      let checkedCount = 0;
+      let revOnCount = 0;
       try {
-        const data = await fetchTornApi("/v2/user/" + encodeURIComponent(id) + "/profile?key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
-        const prof = data.profile || data;
-        const rawRev = prof ? prof.revivable : undefined;
-        const isRevivable = rawRev === true || Number(rawRev) === 1;
-        const entry = {
-          revivable: isRevivable,
-          at: (Date.now() / 1000) | 0,
-          hospUntil: hospMark
-        };
-        reviveCache[id] = entry;
-        saveLocalRevives();
-        enemyHospTracker[id] = {
-          inHosp: true,
-          until: hospMark,
-          checkedForUntil: hospMark
-        };
-        await pushReviveToRemote(id, entry);
-        renderTables();
-      } catch(e) {
-        statusBarEl.textContent = "Revive check failed for " + target.name + " (" + id + "): " + (e && e.message ? e.message : "API error");
+        for (let i = 0; i < hospTargets.length; i++) {
+          const target = hospTargets[i];
+          const id = String(target.id);
+          const hospMark = Number(target.until) || 1;
+          statusBarEl.textContent = "Checking hospital revives (" + (i + 1) + "/" + hospTargets.length + "): " + target.name + "...";
+          try {
+            const data = await fetchTornApi("/v2/user/" + encodeURIComponent(id) + "/profile?key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
+            const prof = data.profile || data;
+            const rawRev = prof ? prof.revivable : undefined;
+            const isRevivable = rawRev === true || Number(rawRev) === 1;
+            const entry = {
+              revivable: isRevivable,
+              at: (Date.now() / 1000) | 0,
+              hospUntil: hospMark
+            };
+            reviveCache[id] = entry;
+            saveLocalRevives();
+            enemyHospTracker[id] = {
+              inHosp: true,
+              until: hospMark,
+              checkedForUntil: hospMark
+            };
+            await pushReviveToRemote(id, entry);
+            checkedCount++;
+            if (isRevivable) revOnCount++;
+            renderTables();
+          } catch (e) {
+            statusBarEl.textContent = "Revive check failed for " + target.name + ": " + (e && e.message ? e.message : "API error");
+          }
+          if (i < hospTargets.length - 1) await sleepMs(REVIVE_STEP_DELAY_MS);
+        }
+        statusBarEl.textContent = "Checked " + checkedCount + " hospitalized on " + (factionData.name || side) + " (" + revOnCount + " revivable) • " + new Date().toLocaleTimeString();
+      } finally {
+        reviveScanBusySide = null;
+        if (btn) btn.classList.remove("scanning");
       }
-      finally {
-        reviveBusy = false;
-      }
-    }
-
-    function setupReviveLoop() {
-      if (reviveTimerId) clearInterval(reviveTimerId);
-      reviveTimerId = setInterval(processNextReviveCheck, REVIVE_PACE_MS);
     }
 
     async function pushFlagToRemote(uid, payload, quiet) {
@@ -1162,8 +1191,7 @@
         renderTables();
         updateChains();
         updateMasterButtonStates();
-        const pendingRevives = getHospitalizedEnemiesToCheck().length;
-        statusBarEl.textContent = "Live • " + (currentRefreshInterval / 1000) + "s sync (3 calls)" + (pendingRevives > 0 ? " • " + pendingRevives + " revive checks queued" : "") + " • Updated " + new Date().toLocaleTimeString();
+        statusBarEl.textContent = "Live • " + (currentRefreshInterval / 1000) + "s sync (3 calls) • Updated " + new Date().toLocaleTimeString();
       } catch (err) {
         statusBarEl.textContent = "Torn API Error: " + err.message;
       }
@@ -1330,7 +1358,6 @@
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) return;
       tickTimers();
-      processNextReviveCheck();
       if (keyInput.value.trim() && verifiedAge() >= VERIFY_MS) runVerify();
     });
     applyCollapseStates();
@@ -1367,7 +1394,6 @@
       clearSavedKey();
       keyInput.value = "";
       if (apiIntervalId) { clearInterval(apiIntervalId); apiIntervalId = null; }
-      if (reviveTimerId) { clearInterval(reviveTimerId); reviveTimerId = null; }
       if (verifyTimer) { clearTimeout(verifyTimer); verifyTimer = null; }
       boardStarted = false;
       document.getElementById("app").style.display = "none";
@@ -1396,7 +1422,7 @@
       document.getElementById("app").style.display = "";
       keyInput.value = key;
       saveApiKey(key);
-      if (!boardStarted) { boardStarted = true; setupApiInterval(); setupFlagsInterval(); setupReviveLoop(); }
+      if (!boardStarted) { boardStarted = true; setupApiInterval(); setupFlagsInterval(); }
       homeDetected = false;
       updateActiveTab();
       fetchAllData();
