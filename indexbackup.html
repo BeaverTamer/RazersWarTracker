@@ -38,29 +38,47 @@
     @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; contain: content; }
     .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
-    .panel-header-left { display: flex; align-items: center; gap: 8px; overflow: hidden; }
-    .panel-header h2 { margin: 0; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
-    .faction-title-link { color: #fff; text-decoration: none; }
-    .faction-title-link:hover { text-decoration: underline; color: #90caf9; }
-    .master-alarm-btn { background: #252525; border: 1px solid #383838; color: #aaa; cursor: pointer; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; }
-    .master-alarm-btn:hover { background: #333; color: #fff; }
+    .panel-header-left { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: visible; }
+    .panel-header h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+    .faction-title-link { color: #fff; text-decoration: none; display: inline-flex; align-items: center; min-width: 0; max-width: 88px; }
+    .faction-title-link:hover { opacity: 0.85; }
+    .faction-tag { height: 22px; width: auto; max-width: 88px; object-fit: contain; display: block; }
+    .faction-short-tag { font-size: 0.82rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
+    .master-alarm-btn, .clear-flags-btn {
+      background: #252525;
+      border: 1px solid #383838;
+      color: #aaa;
+      cursor: pointer;
+      padding: 2px 6px;
+      font-size: 0.75rem;
+      border-radius: 4px;
+      height: 22px;
+      line-height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    .master-alarm-btn:hover, .clear-flags-btn:hover { background: #333; color: #fff; }
     .master-alarm-btn.alarm-active { background: rgba(253, 216, 53, 0.2); color: #fdd835; border-color: #fdd835; }
+    .clear-flags-btn { margin-left: 4px; }
     .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
     .collapse-btn:hover { background: #333; color: #fff; }
     .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
     .panel.collapsed { padding-bottom: 6px; border-style: dashed; }
-    .chain-badge { font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; }
+    .chain-badge { font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; flex-shrink: 0; }
     .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #4caf50; }
     .chain-cooldown { background: #b3e5fc; color: #01579b; border-color: #4fc3f7; box-shadow: 0 0 6px rgba(179, 229, 252, 0.4); }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     th { text-align: left; color: #888; font-weight: 600; padding: 4px 5px; border-bottom: 1px solid #2a2a2a; white-space: nowrap; }
-    tbody tr { height: 26px; }
+    tbody tr { min-height: 26px; height: auto; }
     tbody tr:nth-child(odd) { background-color: #181818; }
     tbody tr:nth-child(even) { background-color: #202020; }
     tbody tr:hover { background-color: #2a2a2a; }
     tbody tr.row-flagged-med { background-color: #291719 !important; border-left: 3px solid #e57373; }
     tbody tr.row-flagged-on_it { background-color: #232528 !important; border-left: 3px solid #9e9e9e; }
-    td { padding: 0 5px; line-height: 26px; white-space: nowrap; vertical-align: middle; }
+    td { padding: 2px 5px; line-height: 1.25; white-space: nowrap; vertical-align: middle; }
     .player-stack { display: flex; flex-direction: column; justify-content: center; }
     .player-cell { display: flex; align-items: center; gap: 4px; max-width: 162px; line-height: 26px; }
     .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
@@ -89,6 +107,7 @@
     .Fallen { color: #757575; font-style: italic; }
     .timer { font-family: monospace; font-size: 0.82rem; padding: 1px 4px; border-radius: 3px; }
     .timer-flight { color: #90caf9; }
+    .flag-elapsed { display: block; font-size: 0.62rem; color: #999; line-height: 1.1; margin-top: 1px; font-family: monospace; white-space: nowrap; }
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 7px; border-radius: 4px; text-decoration: none; font-size: 0.75rem; font-weight: 700; display: inline-block; line-height: 18px; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
     @media (max-width: 480px) {
@@ -100,6 +119,7 @@
       a.atk-btn { padding: 2px 5px; font-size: 0.72rem; }
       input { width: 110px; }
       .find-box { width: 82px; }
+      .faction-tag { height: 20px; }
     }
     @keyframes flashYellow { 0%, 100% { background-color: rgba(253, 216, 53, 0.28); color: #fff59d; } 50% { background-color: transparent; color: #fdd835; } }
     @keyframes flashRed { 0%, 100% { background-color: rgba(229, 57, 53, 0.48); color: #ffffff; } 50% { background-color: transparent; color: #ff5252; } }
@@ -173,12 +193,11 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="allyCollapseBtn" onclick="togglePanel('ally')">[-]</button>
-          <h2>
-            <a id="allyTitleLink" class="faction-title-link" href="#" target="_blank">Razers</a>
-            <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
-          </h2>
+          <h2><a id="allyTitleLink" class="faction-title-link" href="#" target="_blank" title="Razers">Razers</a></h2>
+          <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear flags you set on this side">+⚔ Clear</button>
         </div>
-        <span class="chain-badge" id="allyChain">Chain: --</span>
+        <span class="chain-badge" id="allyChain">⛓️ --</span>
       </div>
       <div class="panel-body">
         <table>
@@ -191,12 +210,11 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <button class="collapse-btn" id="enemyCollapseBtn" onclick="togglePanel('enemy')">[-]</button>
-          <h2>
-            <a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank">Warring Opponent</a>
-            <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
-          </h2>
+          <h2><a id="enemyTitleLink" class="faction-title-link" href="#" target="_blank" title="Warring Opponent">Opponent</a></h2>
+          <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear flags you set on this side">+⚔ Clear</button>
         </div>
-        <span class="chain-badge" id="enemyChain">Chain: --</span>
+        <span class="chain-badge" id="enemyChain">⛓️ --</span>
       </div>
       <div class="panel-body">
         <table>
@@ -343,6 +361,28 @@
       });
     }
 
+    function clearFactionFlags(type) {
+      const factionData = type === 'ally' ? cachedData.ally : cachedData.enemy;
+      if (!factionData || !factionData.members) return;
+      let cleared = 0;
+      for (let i = 0; i < factionData.members.length; i++) {
+        const id = String(factionData.members[i].id);
+        const flag = targetFlags[id];
+        if (flag && flag.by === currentUserName) {
+          delete targetFlags[id];
+          pushFlagToRemote(id, null);
+          cleared++;
+        }
+      }
+      if (cleared > 0) {
+        saveLocalFlags();
+        renderTables();
+        statusBarEl.textContent = "Cleared " + cleared + " of your flag(s) on " + type + " side";
+      } else {
+        statusBarEl.textContent = "No flags set by you on " + type + " side";
+      }
+    }
+
     function toggleAlarm(id, btn) {
       activeAlarms[id] = !activeAlarms[id];
       localStorage.setItem("razers_alarms", JSON.stringify(activeAlarms));
@@ -443,6 +483,35 @@
     const enemyChainEl = document.getElementById("enemyChain");
     const allyTitleLinkEl = document.getElementById("allyTitleLink");
     const enemyTitleLinkEl = document.getElementById("enemyTitleLink");
+
+    function setFactionTitle(linkEl, name, id, tagImage, shortTag) {
+      linkEl.href = id ? "https://www.torn.com/factions.php?step=profile&ID=" + id : "#";
+      linkEl.title = name || "";
+      linkEl.innerHTML = "";
+      const label = shortTag || name || "Faction";
+      if (tagImage) {
+        const img = document.createElement("img");
+        img.className = "faction-tag";
+        img.alt = label;
+        img.title = name || label;
+        img.src = String(tagImage).indexOf("http") === 0 ? tagImage : "https://factiontags.torn.com/" + tagImage;
+        img.onerror = function () {
+          this.remove();
+          if (!linkEl.querySelector(".faction-short-tag")) {
+            const span = document.createElement("span");
+            span.className = "faction-short-tag";
+            span.textContent = label;
+            linkEl.appendChild(span);
+          }
+        };
+        linkEl.appendChild(img);
+        return;
+      }
+      const span = document.createElement("span");
+      span.className = "faction-short-tag";
+      span.textContent = label;
+      linkEl.appendChild(span);
+    }
     const keyInput = document.getElementById("apiKey");
     let currentRefreshInterval = Number(localStorage.getItem("razers_refresh_ms")) || 15000;
     const intervalSelect = document.getElementById("refreshIntervalSelect");
@@ -451,10 +520,6 @@
       currentRefreshInterval = Number(intervalSelect.value);
       localStorage.setItem("razers_refresh_ms", currentRefreshInterval);
       setupApiInterval();
-    }
-    function setupApiInterval() {
-      if (apiIntervalId) clearInterval(apiIntervalId);
-      apiIntervalId = setInterval(fetchAllData, currentRefreshInterval);
     }
     let flagsIntervalId = null;
     let lastFlagsJson = "";
@@ -603,8 +668,7 @@
       });
       const current = OUR_FACTIONS.find(f => f.id === selectedFactionId);
       if (current) {
-        allyTitleLinkEl.textContent = current.name;
-        allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + current.id;
+        setFactionTitle(allyTitleLinkEl, current.name, current.id, "");
       }
     }
     let touchStartX = 0, touchStartY = 0;
@@ -755,7 +819,7 @@
     async function loadFactionCombined(id, key) {
       const data = await fetchTornApi("/v2/faction/" + id + "?selections=basic,chain,members,wars&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
       const basic = data.basic || data;
-      const normalized = { ID: basic.id || basic.ID || id, name: basic.name || "Faction", chain: data.chain || null, members: [], ranked_wars: {}, territory_wars: {}, raid_wars: {} };
+      const normalized = { ID: basic.id || basic.ID || id, name: basic.name || "Faction", tag: basic.tag || "", tagImage: basic.tag_image || basic.tagImage || "", chain: data.chain || null, members: [], ranked_wars: {}, territory_wars: {}, raid_wars: {} };
       const rawMembers = Array.isArray(data.members) ? data.members : (data.members && typeof data.members === "object" ? Object.entries(data.members).map(([k, v]) => ({ ...v, id: v.id || k })) : []);
       for (let i = 0; i < rawMembers.length; i++) {
         const m = rawMembers[i];
@@ -798,21 +862,18 @@
         cachedData.ally = allyData;
         clearFlagForHospitalized(allyData);
         updateFlightTrackers(allyData, true);
-        allyTitleLinkEl.textContent = allyData.name;
-        allyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + allyData.ID;
+        setFactionTitle(allyTitleLinkEl, allyData.name, allyData.ID, allyData.tagImage, allyData.tag);
         const warInfo = extractActiveWar(allyData, selectedFactionId);
         if (warInfo && warInfo.oppId) {
           const enemyData = await loadFactionCombined(warInfo.oppId, key);
           cachedData.enemy = enemyData;
           clearFlagForHospitalized(enemyData);
           updateFlightTrackers(enemyData, false);
-          enemyTitleLinkEl.textContent = enemyData.name;
-          enemyTitleLinkEl.href = "https://www.torn.com/factions.php?step=profile&ID=" + enemyData.ID;
+          setFactionTitle(enemyTitleLinkEl, enemyData.name, enemyData.ID, enemyData.tagImage, enemyData.tag);
           updateWarBanner(warInfo, enemyData);
         } else {
           cachedData.enemy = null;
-          enemyTitleLinkEl.textContent = "No Active War";
-          enemyTitleLinkEl.href = "#";
+          setFactionTitle(enemyTitleLinkEl, "No Active War", null, "", "—");
           updateWarBanner(null, null);
         }
         renderTables();
@@ -834,18 +895,18 @@
       return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
     }
     function renderChainBadge(factionData, el, isAlly) {
-      if (!factionData || !factionData.chain) { el.textContent = "Chain: None"; el.className = "chain-badge"; return; }
+      if (!factionData || !factionData.chain) { el.textContent = "⛓️ None"; el.className = "chain-badge"; return; }
       const c = factionData.chain;
       const now = (Date.now() / 1000) | 0;
-      if (c.cooldown > 0 && c.cooldown - now > 0) { el.textContent = "Chain: " + (c.current || 0) + " (CD " + formatMMSS(c.cooldown - now) + ")"; el.className = "chain-badge chain-cooldown"; return; }
-      if (!c.current) { el.textContent = "Chain: None"; el.className = "chain-badge"; return; }
+      if (c.cooldown > 0 && c.cooldown - now > 0) { el.textContent = "⛓️ " + (c.current || 0) + " (CD " + formatMMSS(c.cooldown - now) + ")"; el.className = "chain-badge chain-cooldown"; return; }
+      if (!c.current) { el.textContent = "⛓️ None"; el.className = "chain-badge"; return; }
       const timeoutRem = c.timeout > 0 ? Math.max(0, c.end - now) : 0;
       if (timeoutRem > 0) {
-        el.textContent = "Chain: " + c.current + "/" + (c.max || "?") + " (" + formatMMSS(timeoutRem) + ")";
+        el.textContent = "⛓️ " + c.current + "/" + (c.max || "?") + " (" + formatMMSS(timeoutRem) + ")";
         if ((isAlly && timeoutRem < 60) || (!isAlly && timeoutRem <= 60)) el.className = "chain-badge timer-red-fast";
         else if (isAlly && timeoutRem < 150) el.className = "chain-badge timer-yellow-slow";
         else el.className = "chain-badge chain-active";
-      } else { el.textContent = "Chain: " + c.current; el.className = "chain-badge"; }
+      } else { el.textContent = "⛓️ " + c.current; el.className = "chain-badge"; }
     }
     function updateChains() {
       renderChainBadge(cachedData.ally, allyChainEl, true);
@@ -913,7 +974,18 @@
           ? '<div class="flag-subline flag-' + flagType + '"><span class="flag-arrow">↳</span><span>' + (flagType === "med" ? "+ Medding" : "⚔ On It") + '</span><span class="flag-by">· ' + flag.by + '</span></div>'
           : "";
 
-        return '<tr class="' + rowFlagClass + '"><td><div class="player-stack"><div class="player-cell"><button class="' + (activeAlarms[m.id] ? "alarm-btn alarm-active" : "alarm-btn") + '" onclick="toggleAlarm(\'' + m.id + '\', this)">' + (activeAlarms[m.id] ? "🔔" : "🔕") + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="last-act">' + m.lastAct + '</span><button class="' + flagBtnClass + '" onclick="cycleTargetFlag(\'' + m.id + '\')" title="' + flagTitle + '">' + flagIcon + '</button></div>' + subLineHtml + '</div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span></td>' + actionCell + '</tr>';
+        let lastActClass = "last-act";
+
+        let flagElapsedHtml = "";
+        if (flag && flag.at) {
+          const elapsed = Math.max(0, now - flag.at);
+          const em = Math.floor(elapsed / 60);
+          const es = elapsed % 60;
+          const eText = em > 0 ? em + "m" + (es < 10 ? "0" : "") + es + "s" : es + "s";
+          flagElapsedHtml = '<span class="flag-elapsed" data-at="' + flag.at + '">' + eText + '</span>';
+        }
+
+        return '<tr class="' + rowFlagClass + '"><td><div class="player-stack"><div class="player-cell"><button class="' + (activeAlarms[m.id] ? "alarm-btn alarm-active" : "alarm-btn") + '" onclick="toggleAlarm(\'' + m.id + '\', this)">' + (activeAlarms[m.id] ? "🔔" : "🔕") + '</button><span class="dot dot-' + m.onlineState + '"></span><a class="player-link" href="https://www.torn.com/profiles.php?XID=' + m.id + '" target="_blank">' + m.name + '</a><span class="' + lastActClass + '">' + m.lastAct + '</span><button class="' + flagBtnClass + '" onclick="cycleTargetFlag(\'' + m.id + '\')" title="' + flagTitle + '">' + flagIcon + '</button></div>' + subLineHtml + '</div></td><td>' + m.level + '</td><td class="' + m.rawState + '">' + m.label + '</td><td><span class="timer ' + alertClass + '"' + dataAttrs + '>' + timerText + '</span>' + flagElapsedHtml + '</td>' + actionCell + '</tr>';
       }).join("");
     }
     function renderTables() {
@@ -931,6 +1003,14 @@
         const el = liveFlightNodes[i];
         el.textContent = el.dataset.flightPrefix + formatElapsedFlight(now - Number(el.dataset.flightStart));
       }
+      document.querySelectorAll(".flag-elapsed").forEach(el => {
+        const at = Number(el.dataset.at);
+        if (!at) return;
+        const elapsed = Math.max(0, now - at);
+        const em = Math.floor(elapsed / 60);
+        const es = elapsed % 60;
+        el.textContent = em > 0 ? em + "m" + (es < 10 ? "0" : "") + es + "s" : es + "s";
+      });
       for (let i = 0; i < liveCountdownNodes.length; i++) {
         const el = liveCountdownNodes[i];
         const diff = Number(el.dataset.until) - now;
