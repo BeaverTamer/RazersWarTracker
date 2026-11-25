@@ -254,7 +254,6 @@
       { id: 40385, name: "RazerResistance" }
     ];
     const FLAGS_DB_URL = "https://razerswartracker-default-rtdb.firebaseio.com";
-    const FLAG_TTL_SEC = 600;
     const REVIVE_STEP_DELAY_MS = 350;
 
     const CITY_CODES = [
@@ -287,6 +286,7 @@
     let activeAlarms = {};
     try { activeAlarms = JSON.parse(localStorage.getItem("razers_alarms") || "{}"); } catch(e) { activeAlarms = {}; }
 
+    // Flags persist until cleared by the user, cleared by a leader/co-leader, or the war ends.
     let targetFlags = {};
     try { targetFlags = JSON.parse(localStorage.getItem("razers_target_flags") || "{}"); } catch(e) { targetFlags = {}; }
 
@@ -314,11 +314,10 @@
       try { localStorage.setItem("razers_revive_cache", JSON.stringify(reviveCache)); } catch(e) {}
     }
 
-    function pruneExpiredFlags() {
-      const now = (Date.now() / 1000) | 0;
+    function pruneInvalidFlags() {
       let changed = false;
       for (const [uid, f] of Object.entries(targetFlags)) {
-        if (!f || !f.type || !f.at || (now - f.at) >= FLAG_TTL_SEC) {
+        if (!f || (f.type !== "med" && f.type !== "on_it") || !f.by) {
           delete targetFlags[uid];
           changed = true;
         }
@@ -378,7 +377,7 @@
         else legacy = f;
       }
       if (!calls.length && legacy) calls.push(legacy);
-      calls.sort((a, b) => Number(b.at) - Number(a.at));
+      calls.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
       return calls;
     }
     function migrateLegacy(id) {
@@ -399,7 +398,7 @@
         delete targetFlags[id];
         return null;
       }
-      const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at) };
+      const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || ((Date.now() / 1000) | 0)) };
       targetFlags[id] = latest;
       return latest;
     }
@@ -433,19 +432,18 @@
     }
 
     async function syncFlagsFromRemote() {
-      pruneExpiredFlags();
+      pruneInvalidFlags();
       const base = getDbBaseUrl();
       if (!base) return;
       try {
         const res = await fetch(base + "/flags.json");
         if (!res.ok) throw new Error("HTTP " + res.status);
         const remote = await res.json();
-        const now = (Date.now() / 1000) | 0;
         const next = {};
         if (remote && typeof remote === "object") {
           for (const [uid, f] of Object.entries(remote)) {
-            if (f && (f.type === "med" || f.type === "on_it") && f.by && f.at && (now - Number(f.at)) < FLAG_TTL_SEC) {
-              next[String(uid)] = { type: f.type, by: String(f.by), at: Number(f.at) };
+            if (f && (f.type === "med" || f.type === "on_it") && f.by) {
+              next[String(uid)] = { type: f.type, by: String(f.by), at: Number(f.at || 0) };
             }
           }
         }
@@ -674,7 +672,7 @@
     }
 
     function cycleTargetFlag(uid) {
-      pruneExpiredFlags();
+      pruneInvalidFlags();
       const id = String(uid);
       migrateLegacy(id);
       const key = callerKey(id, currentUserName);
@@ -738,7 +736,7 @@
           if (targetFlags[id]) delete targetFlags[id];
           pushFlagToRemote(id, null, true);
         } else {
-          const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at) };
+          const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || ((Date.now() / 1000) | 0)) };
           targetFlags[id] = latest;
           pushFlagToRemote(id, latest, true);
         }
@@ -1327,7 +1325,7 @@
         tbodyEl.innerHTML = '<tr><td colspan="5" style="color:#777;">No active opponent or data found.</td></tr>';
         return;
       }
-      pruneExpiredFlags();
+      pruneInvalidFlags();
       const now = (Date.now() / 1000) | 0;
       let list = factionData.members.map(m => {
         if ((m.rawState === "Hospital" || m.rawState === "Jail") && m.until > 0 && (now - m.until) >= 8) {
