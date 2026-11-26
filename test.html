@@ -351,6 +351,11 @@
       try { localStorage.setItem("razers_revive_cache", JSON.stringify(reviveCache)); } catch(e) {}
     }
 
+    // TCT is UTC+0; epoch seconds are timezone-invariant across all clients
+    function nowTctEpochSec() {
+      return Math.floor(Date.now() / 1000);
+    }
+
     function updateClocks() {
       const clockEl = document.getElementById("clockBadge");
       if (!clockEl) return;
