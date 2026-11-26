@@ -29,7 +29,7 @@
     .war-team-enemy { color: #e57373; }
     .war-center-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; flex-wrap: wrap; }
     .lead-badge { padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #2c2c2c; color: #ddd; }
-    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border-color: #4caf50; border: 1px solid #4caf50; }
+    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border: 1px solid #4caf50; }
     .lead-enemy { background: rgba(198, 40, 40, 0.3); color: #ef9a9a; border: 1px solid #e53935; }
     .target-text { color: #bbb; font-family: monospace; font-size: 0.8rem; }
     .war-end-countdown { color: #90caf9; font-family: monospace; font-size: 0.8rem; font-weight: 700; }
@@ -281,7 +281,6 @@
     const REVIVE_STEP_DELAY_MS = 350;
     const MAX_LOG_ENTRIES = 100;
     const FLIGHT_MAX_AGE_SEC = 28800;
-    const FLIGHT_RECENT_FLAG_SEC = 15;
 
     const CITY_CODES = [
       { keys: ["torn"], code: "TC" },
@@ -426,15 +425,6 @@
       if (!calls.length && legacy) calls.push(legacy);
       calls.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
       return calls;
-    }
-    function hasRecentFlagForPlayer(uid, nowSec) {
-      const id = String(uid);
-      const calls = getCalls(id);
-      if (calls.some(c => c && Number(c.at || 0) > 0 && (nowSec - Number(c.at)) <= FLIGHT_RECENT_FLAG_SEC)) {
-        return true;
-      }
-      const direct = targetFlags[id];
-      return Boolean(direct && Number(direct.at || 0) > 0 && (nowSec - Number(direct.at)) <= FLIGHT_RECENT_FLAG_SEC);
     }
     function migrateLegacy(id) {
       const bare = targetFlags[id];
@@ -693,17 +683,13 @@
               delete next[uid];
               continue;
             }
-            const existing = next[uid];
-            if (existing && existing.route === String(info.route || "") && hasRecentFlagForPlayer(uid, nowSec)) {
-              continue;
-            }
             const candidate = {
               start: start,
               route: String(info.route || ""),
               exact: Boolean(info.exact),
               at: Number(info.at || start)
             };
-            next[String(uid)] = pickBetterFlight(candidate, existing);
+            next[String(uid)] = pickBetterFlight(candidate, next[uid]);
           }
         }
         flightStarts = next;
@@ -1216,24 +1202,26 @@
         const hadPriorState = Object.prototype.hasOwnProperty.call(lastKnownStates, prevKey);
         if (state === "Traveling") {
           const route = m.label;
-          const transitionSeen = Boolean(hadPriorState && prevState && prevState !== "Traveling");
-          const recentFlag = hasRecentFlagForPlayer(id, now);
+          // Only mark exact if we observed a non-traveling -> traveling transition on this client
+          const trulyWitnessed = Boolean(hadPriorState && prevState && prevState !== "Traveling");
           const existing = flightStarts[id];
 
           if (!existing) {
-            const isExact = transitionSeen || recentFlag;
-            const entry = { start: now, route: route, exact: isExact };
+            const entry = { start: now, route: route, exact: trulyWitnessed };
             flightStarts[id] = entry;
-            pushFlightToRemote(id, entry);
+            if (trulyWitnessed) {
+              pushFlightToRemote(id, entry);
+            }
             changed = true;
           } else if (existing.route !== route) {
-            const isExact = transitionSeen || recentFlag;
-            const entry = { start: now, route: route, exact: isExact };
+            const entry = { start: now, route: route, exact: trulyWitnessed };
             flightStarts[id] = entry;
-            pushFlightToRemote(id, entry);
+            if (trulyWitnessed) {
+              pushFlightToRemote(id, entry);
+            }
             changed = true;
-          } else if (!existing.exact && (transitionSeen || recentFlag)) {
-            const entry = { start: existing.start || now, route: route, exact: true };
+          } else if (trulyWitnessed && !existing.exact) {
+            const entry = { start: now, route: route, exact: true };
             flightStarts[id] = entry;
             pushFlightToRemote(id, entry);
             changed = true;
