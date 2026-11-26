@@ -27,7 +27,7 @@
     .war-team-enemy { color: #e57373; }
     .war-center-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; flex-wrap: wrap; }
     .lead-badge { padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #2c2c2c; color: #ddd; }
-    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border: 1px solid #4caf50; }
+    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border-color: #4caf50; border: 1px solid #4caf50; }
     .lead-enemy { background: rgba(198, 40, 40, 0.3); color: #ef9a9a; border: 1px solid #e53935; }
     .target-text { color: #bbb; font-family: monospace; font-size: 0.8rem; }
     .war-end-countdown { color: #90caf9; font-family: monospace; font-size: 0.8rem; font-weight: 700; }
@@ -308,8 +308,24 @@
     let targetFlags = {};
     try { targetFlags = JSON.parse(localStorage.getItem("razers_target_flags") || "{}"); } catch(e) { targetFlags = {}; }
 
-    let lastKnownFlagKeys = new Set(Object.keys(targetFlags));
-    let suppressWipeLogUntil = 0;
+    let lastKnownFlagKeys = new Set();
+    try {
+      const savedKnownKeys = JSON.parse(localStorage.getItem("razers_known_flag_keys") || "null");
+      if (Array.isArray(savedKnownKeys)) lastKnownFlagKeys = new Set(savedKnownKeys);
+      else lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+    } catch(e) {
+      lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+    }
+
+    let suppressWipeLogUntil = Number(localStorage.getItem("razers_suppress_wipe_until") || 0);
+
+    function saveKnownFlagKeys() {
+      try { localStorage.setItem("razers_known_flag_keys", JSON.stringify(Array.from(lastKnownFlagKeys))); } catch(e) {}
+    }
+    function setSuppressWipeLog(ms) {
+      suppressWipeLogUntil = Date.now() + ms;
+      try { localStorage.setItem("razers_suppress_wipe_until", String(suppressWipeLogUntil)); } catch(e) {}
+    }
 
     let reviveCache = {};
     try { reviveCache = JSON.parse(localStorage.getItem("razers_revive_cache") || "{}"); } catch(e) { reviveCache = {}; }
@@ -544,9 +560,13 @@
         const nextKeys = new Set(Object.keys(next));
         const vanishedKeys = Array.from(lastKnownFlagKeys).filter(k => !nextKeys.has(k));
         if (vanishedKeys.length > 0 && Date.now() > suppressWipeLogUntil) {
-          await appendFlagAuditLog("db_or_external_clear", vanishedKeys.length, selectedFactionId);
+          const vanishedPlayers = new Set(vanishedKeys.map(k => splitFlagKey(k).uid)).size;
+          if (vanishedPlayers > 0) {
+            await appendFlagAuditLog("db_or_external_clear", vanishedPlayers, selectedFactionId);
+          }
         }
         lastKnownFlagKeys = nextKeys;
+        saveKnownFlagKeys();
         targetFlags = next;
         saveLocalFlags();
       } catch(err) {
@@ -593,15 +613,17 @@
       if (!idSet.size) return;
 
       const flagKeysToDelete = Object.keys(targetFlags).filter(k => idSet.has(splitFlagKey(k).uid));
+      const clearedPlayers = new Set(flagKeysToDelete.map(k => splitFlagKey(k).uid)).size;
       const reviveIdsToDelete = Object.keys(reviveCache).filter(uid => idSet.has(String(uid)));
 
-      if (flagKeysToDelete.length) suppressWipeLogUntil = Date.now() + 8000;
+      if (flagKeysToDelete.length) setSuppressWipeLog(8000);
       flagKeysToDelete.forEach(k => { delete targetFlags[k]; });
       reviveIdsToDelete.forEach(uid => { delete reviveCache[uid]; });
       idSet.forEach(uid => { delete enemyHospTracker[uid]; });
 
       if (flagKeysToDelete.length) {
         lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+        saveKnownFlagKeys();
         saveLocalFlags();
       }
       if (reviveIdsToDelete.length) saveLocalRevives();
@@ -611,8 +633,8 @@
           ...flagKeysToDelete.map(k => pushFlagToRemote(k, null, true)),
           ...reviveIdsToDelete.map(uid => pushReviveToRemote(uid, null))
         ]);
-        if (flagKeysToDelete.length) {
-          await appendFlagAuditLog("war_end_clear", flagKeysToDelete.length, factionId);
+        if (clearedPlayers > 0) {
+          await appendFlagAuditLog("war_end_clear", clearedPlayers, factionId);
         }
       }
     }
@@ -766,6 +788,7 @@
       }
       const primary = refreshPrimaryLocal(id);
       lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+      saveKnownFlagKeys();
       saveLocalFlags();
       renderTables();
       pushFlagToRemote(key, nextVal, true).then(() => pushFlagToRemote(id, primary, true)).then(() => {
@@ -792,7 +815,7 @@
         statusBarEl.textContent = "No flags set by you on " + (targetFaction.name || "this faction");
         return;
       }
-      suppressWipeLogUntil = Date.now() + 8000;
+      setSuppressWipeLog(8000);
       let clearedPlayers = 0;
       ids.forEach(id => {
         let removedForPlayer = false;
@@ -829,6 +852,7 @@
         if (removedForPlayer) clearedPlayers++;
       });
       lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+      saveKnownFlagKeys();
       saveLocalFlags();
       renderTables();
       if (clearedPlayers > 0) {
@@ -851,9 +875,10 @@
         return;
       }
       if (!confirm("Clear every flag on both factions visible on this page?")) return;
-      suppressWipeLogUntil = Date.now() + 8000;
+      setSuppressWipeLog(8000);
       keys.forEach(k => { delete targetFlags[k]; });
       lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+      saveKnownFlagKeys();
       saveLocalFlags();
       renderTables();
       await Promise.all(keys.map(k => pushFlagToRemote(k, null, true)));
