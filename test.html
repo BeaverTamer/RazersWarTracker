@@ -308,6 +308,9 @@
     let targetFlags = {};
     try { targetFlags = JSON.parse(localStorage.getItem("razers_target_flags") || "{}"); } catch(e) { targetFlags = {}; }
 
+    let lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+    let suppressWipeLogUntil = 0;
+
     let reviveCache = {};
     try { reviveCache = JSON.parse(localStorage.getItem("razers_revive_cache") || "{}"); } catch(e) { reviveCache = {}; }
 
@@ -538,6 +541,12 @@
             }
           }
         }
+        const nextKeys = new Set(Object.keys(next));
+        const vanishedKeys = Array.from(lastKnownFlagKeys).filter(k => !nextKeys.has(k));
+        if (vanishedKeys.length > 0 && Date.now() > suppressWipeLogUntil) {
+          await appendFlagAuditLog("db_or_external_clear", vanishedKeys.length, selectedFactionId);
+        }
+        lastKnownFlagKeys = nextKeys;
         targetFlags = next;
         saveLocalFlags();
       } catch(err) {
@@ -586,11 +595,15 @@
       const flagKeysToDelete = Object.keys(targetFlags).filter(k => idSet.has(splitFlagKey(k).uid));
       const reviveIdsToDelete = Object.keys(reviveCache).filter(uid => idSet.has(String(uid)));
 
+      if (flagKeysToDelete.length) suppressWipeLogUntil = Date.now() + 8000;
       flagKeysToDelete.forEach(k => { delete targetFlags[k]; });
       reviveIdsToDelete.forEach(uid => { delete reviveCache[uid]; });
       idSet.forEach(uid => { delete enemyHospTracker[uid]; });
 
-      if (flagKeysToDelete.length) saveLocalFlags();
+      if (flagKeysToDelete.length) {
+        lastKnownFlagKeys = new Set(Object.keys(targetFlags));
+        saveLocalFlags();
+      }
       if (reviveIdsToDelete.length) saveLocalRevives();
 
       if (flagKeysToDelete.length || reviveIdsToDelete.length) {
@@ -752,6 +765,7 @@
         if (targetFlags[id] && targetFlags[id].by === currentUserName) delete targetFlags[id];
       }
       const primary = refreshPrimaryLocal(id);
+      lastKnownFlagKeys = new Set(Object.keys(targetFlags));
       saveLocalFlags();
       renderTables();
       pushFlagToRemote(key, nextVal, true).then(() => pushFlagToRemote(id, primary, true)).then(() => {
@@ -770,6 +784,7 @@
         statusBarEl.textContent = "No flags set by you";
         return;
       }
+      suppressWipeLogUntil = Date.now() + 8000;
       let cleared = 0;
       ids.forEach(id => {
         Object.keys(targetFlags).forEach(k => {
@@ -803,6 +818,7 @@
           pushFlagToRemote(id, latest, true);
         }
       });
+      lastKnownFlagKeys = new Set(Object.keys(targetFlags));
       saveLocalFlags();
       renderTables();
       appendFlagAuditLog("user_clear", cleared, selectedFactionId);
@@ -822,7 +838,9 @@
         return;
       }
       if (!confirm("Clear every flag on the two factions on this page?")) return;
+      suppressWipeLogUntil = Date.now() + 8000;
       keys.forEach(k => { delete targetFlags[k]; });
+      lastKnownFlagKeys = new Set(Object.keys(targetFlags));
       saveLocalFlags();
       renderTables();
       await Promise.all(keys.map(k => pushFlagToRemote(k, null, true)));
