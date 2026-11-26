@@ -211,8 +211,8 @@
             </svg>
           </button>
           <button class="master-alarm-btn" id="allyMasterBtn" onclick="toggleFactionMasterAlarm('ally')" title="Toggle All Ally Alarms">🔔 All</button>
-          <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear every flag you set, on every faction">+⚔ Clear</button>
-          <button class="clear-flags-btn" id="masterClearBtn" style="display:none" onclick="masterClearAllFlags()" title="Clear every flag on the two factions on this page">⚔ All</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('ally')" title="Clear your flags on this faction only">+⚔ Clear</button>
+          <button class="clear-flags-btn" id="masterClearBtn" style="display:none" onclick="masterClearAllFlags()" title="Clear every flag on both factions visible on this page">⚔ All</button>
         </div>
         <span class="chain-badge" id="allyChain">⛓️ --</span>
       </div>
@@ -236,7 +236,7 @@
             </svg>
           </button>
           <button class="master-alarm-btn" id="enemyMasterBtn" onclick="toggleFactionMasterAlarm('enemy')" title="Toggle All Enemy Alarms">🔔 All</button>
-          <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear every flag you set, on every faction">+⚔ Clear</button>
+          <button class="clear-flags-btn" onclick="clearFactionFlags('enemy')" title="Clear your flags on this faction only">+⚔ Clear</button>
         </div>
         <span class="chain-badge" id="enemyChain">⛓️ --</span>
       </div>
@@ -774,19 +774,28 @@
       });
     }
 
-    function clearFactionFlags() {
+    function clearFactionFlags(side) {
+      const targetFaction = side === "enemy" ? cachedData.enemy : cachedData.ally;
+      if (!targetFaction || !Array.isArray(targetFaction.members)) {
+        statusBarEl.textContent = "No faction roster loaded to clear flags on.";
+        return;
+      }
+      const rosterIds = new Set(targetFaction.members.map(m => String(m.id)));
       const ids = new Set();
       Object.keys(targetFlags).forEach(k => {
+        const uid = splitFlagKey(k).uid;
+        if (!rosterIds.has(uid)) return;
         const f = targetFlags[k];
-        if (f && f.by === currentUserName) ids.add(splitFlagKey(k).uid);
+        if (f && f.by === currentUserName) ids.add(uid);
       });
       if (!ids.size) {
-        statusBarEl.textContent = "No flags set by you";
+        statusBarEl.textContent = "No flags set by you on " + (targetFaction.name || "this faction");
         return;
       }
       suppressWipeLogUntil = Date.now() + 8000;
-      let cleared = 0;
+      let clearedPlayers = 0;
       ids.forEach(id => {
+        let removedForPlayer = false;
         Object.keys(targetFlags).forEach(k => {
           const p = splitFlagKey(k);
           if (!p.personal || p.uid !== id) return;
@@ -794,7 +803,7 @@
           if (f && f.by === currentUserName) {
             delete targetFlags[k];
             pushFlagToRemote(k, null, true);
-            cleared++;
+            removedForPlayer = true;
           }
         });
         const personalLeft = Object.keys(targetFlags).some(k => {
@@ -805,47 +814,51 @@
         if (!personalLeft && bare && bare.by === currentUserName) {
           delete targetFlags[id];
           pushFlagToRemote(id, null, true);
-          cleared++;
-          return;
-        }
-        const calls = getCalls(id);
-        if (!calls.length) {
-          if (targetFlags[id]) delete targetFlags[id];
-          pushFlagToRemote(id, null, true);
+          removedForPlayer = true;
         } else {
-          const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || ((Date.now() / 1000) | 0)) };
-          targetFlags[id] = latest;
-          pushFlagToRemote(id, latest, true);
+          const calls = getCalls(id);
+          if (!calls.length) {
+            if (targetFlags[id]) delete targetFlags[id];
+            pushFlagToRemote(id, null, true);
+          } else {
+            const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || ((Date.now() / 1000) | 0)) };
+            targetFlags[id] = latest;
+            pushFlagToRemote(id, latest, true);
+          }
         }
+        if (removedForPlayer) clearedPlayers++;
       });
       lastKnownFlagKeys = new Set(Object.keys(targetFlags));
       saveLocalFlags();
       renderTables();
-      appendFlagAuditLog("user_clear", cleared, selectedFactionId);
-      statusBarEl.textContent = "Cleared " + cleared + " of your flag(s) on every faction";
+      if (clearedPlayers > 0) {
+        appendFlagAuditLog("user_clear", clearedPlayers, Number(targetFaction.ID) || selectedFactionId);
+      }
+      statusBarEl.textContent = "Cleared your flag(s) on " + clearedPlayers + " player(s) on " + (targetFaction.name || "this faction");
     }
 
     async function masterClearAllFlags() {
       if (!canMasterClear()) return;
-      const ids = new Set();
+      const visibleIds = new Set();
       [cachedData.ally, cachedData.enemy].forEach(fac => {
-        if (!fac || !fac.members) return;
-        fac.members.forEach(m => ids.add(String(m.id)));
+        if (!fac || !Array.isArray(fac.members)) return;
+        fac.members.forEach(m => visibleIds.add(String(m.id)));
       });
-      const keys = Object.keys(targetFlags).filter(k => ids.has(splitFlagKey(k).uid));
+      const keys = Object.keys(targetFlags).filter(k => visibleIds.has(splitFlagKey(k).uid));
+      const clearedPlayerIds = new Set(keys.map(k => splitFlagKey(k).uid));
       if (!keys.length) {
-        statusBarEl.textContent = "No flags on the two factions on this page";
+        statusBarEl.textContent = "No flags on the two factions visible on this page";
         return;
       }
-      if (!confirm("Clear every flag on the two factions on this page?")) return;
+      if (!confirm("Clear every flag on both factions visible on this page?")) return;
       suppressWipeLogUntil = Date.now() + 8000;
       keys.forEach(k => { delete targetFlags[k]; });
       lastKnownFlagKeys = new Set(Object.keys(targetFlags));
       saveLocalFlags();
       renderTables();
       await Promise.all(keys.map(k => pushFlagToRemote(k, null, true)));
-      await appendFlagAuditLog("master_clear", keys.length, selectedFactionId);
-      statusBarEl.textContent = "Cleared flags on the two factions on this page";
+      await appendFlagAuditLog("master_clear", clearedPlayerIds.size, selectedFactionId);
+      statusBarEl.textContent = "Cleared flags on " + clearedPlayerIds.size + " player(s) across both visible factions";
     }
 
     function toggleAlarm(id, btn) {
