@@ -113,7 +113,9 @@
     .Traveling { color: #42a5f5; }
     .Fallen { color: #757575; font-style: italic; }
     .timer { font-family: monospace; font-size: 0.82rem; padding: 1px 4px; border-radius: 3px; }
-    .timer-flight { color: #90caf9; }
+    .timer-flight-exact { color: #42a5f5; font-weight: 600; }
+    .timer-flight-approx { color: #ffffff; }
+    .timer-hospital { color: #ef5350; }
     .flag-elapsed { display: block; font-size: 0.62rem; color: #999; line-height: 1.1; margin-top: 1px; font-family: monospace; white-space: nowrap; }
     a.atk-btn { background: #7f1d1d; color: #e0e0e0; padding: 2px 7px; border-radius: 4px; text-decoration: none; font-size: 0.75rem; font-weight: 700; display: inline-block; line-height: 18px; }
     a.atk-btn:hover { background: #b71c1c; color: #fff; }
@@ -351,7 +353,6 @@
       try { localStorage.setItem("razers_revive_cache", JSON.stringify(reviveCache)); } catch(e) {}
     }
 
-    // TCT is UTC+0; epoch seconds are timezone-invariant across all clients
     function nowTctEpochSec() {
       return Math.floor(Date.now() / 1000);
     }
@@ -442,7 +443,7 @@
         delete targetFlags[id];
         return null;
       }
-      const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || ((Date.now() / 1000) | 0)) };
+      const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || nowTctEpochSec()) };
       targetFlags[id] = latest;
       return latest;
     }
@@ -493,7 +494,7 @@
       const base = getDbBaseUrl();
       if (!base || !clearedCount) return;
       const entry = {
-        at: (Date.now() / 1000) | 0,
+        at: nowTctEpochSec(),
         by: String(currentUserName || "Unknown"),
         byId: Number(currentUserId || 0),
         action: String(action || "clear"),
@@ -605,7 +606,7 @@
         if (remote && typeof remote === "object") {
           for (const [uid, r] of Object.entries(remote)) {
             if (r && typeof r.revivable === "boolean") {
-              next[String(uid)] = { revivable: r.revivable, at: Number(r.at || ((Date.now() / 1000) | 0)), hospUntil: Number(r.hospUntil || 0) };
+              next[String(uid)] = { revivable: r.revivable, at: Number(r.at || nowTctEpochSec()), hospUntil: Number(r.hospUntil || 0) };
             }
           }
         }
@@ -632,15 +633,21 @@
       const base = getDbBaseUrl();
       if (!base) return;
       try {
-        await fetch(base + "/flights/" + encodeURIComponent(String(uid)) + ".json", {
+        const bodyData = payload === null
+          ? null
+          : { start: Number(payload.start), route: String(payload.route || ""), exact: Boolean(payload.exact) };
+        const res = await fetch(base + "/flights/" + encodeURIComponent(String(uid)) + ".json", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(bodyData)
         });
-      } catch(e) {}
+        if (!res.ok) throw new Error("Flights write HTTP " + res.status);
+      } catch(e) {
+        statusBarEl.textContent = "Flight sync write error: " + (e && e.message ? e.message : "Check Firebase /flights rules");
+      }
     }
 
-function pickBetterFlight(a, b) {
+    function pickBetterFlight(a, b) {
       if (!a) return b || null;
       if (!b) return a;
       if (a.route && b.route && a.route !== b.route) {
@@ -668,7 +675,8 @@ function pickBetterFlight(a, b) {
         const staleIds = [];
         if (remote && typeof remote === "object") {
           for (const [uid, info] of Object.entries(remote)) {
-            const start = info ? Number(info.start || info.departedAt || 0) : 0;
+            const rawStart = info ? Number(info.start || info.departedAt || 0) : 0;
+            const start = rawStart > nowSec ? nowSec : rawStart;
             if (!start || (nowSec - start) >= FLIGHT_MAX_AGE_SEC) {
               staleIds.push(uid);
               continue;
@@ -682,7 +690,7 @@ function pickBetterFlight(a, b) {
             const merged = pickBetterFlight(candidate, flightStarts[uid]);
             next[String(uid)] = merged;
             if (merged && (merged.start !== candidate.start || merged.exact !== candidate.exact) && merged.exact) {
-              pushFlightToRemote(uid, { start: merged.start, route: merged.route, exact: merged.exact, by: currentUserName });
+              pushFlightToRemote(uid, merged);
             }
           }
         }
@@ -694,66 +702,6 @@ function pickBetterFlight(a, b) {
       } catch(e) {
         statusBarEl.textContent = "Flight sync read error: " + (e && e.message ? e.message : "Check Firebase /flights rules");
       }
-    }
-
-    function updateFlightTrackers(factionData, isAlly) {
-      if (!factionData || !factionData.members) return;
-      const now = nowTctEpochSec();
-      let changed = false;
-      for (const uid in flightStarts) {
-        if ((now - flightStarts[uid].start) >= FLIGHT_MAX_AGE_SEC) {
-          delete flightStarts[uid];
-          pushFlightToRemote(uid, null);
-          changed = true;
-        }
-      }
-      for (let i = 0; i < factionData.members.length; i++) {
-        const m = factionData.members[i];
-        const id = String(m.id);
-        const state = m.rawState;
-        const prevKey = id + (isAlly ? "_ally" : "_enemy");
-        const prevState = lastKnownStates[prevKey];
-        const hadPriorState = Object.prototype.hasOwnProperty.call(lastKnownStates, prevKey);
-        if (state === "Traveling") {
-          const route = m.label;
-          const transitionSeen = Boolean(hadPriorState && prevState && prevState !== "Traveling");
-          const existing = flightStarts[id];
-
-          if (!existing) {
-            const entry = { start: now, route: route, exact: transitionSeen };
-            flightStarts[id] = entry;
-            if (transitionSeen) {
-              pushFlightToRemote(id, { ...entry, by: currentUserName });
-            }
-            changed = true;
-          } else if (existing.route !== route) {
-            const entry = { start: now, route: route, exact: transitionSeen };
-            flightStarts[id] = entry;
-            if (transitionSeen) {
-              pushFlightToRemote(id, { ...entry, by: currentUserName });
-            }
-            changed = true;
-          } else if (transitionSeen && !existing.exact) {
-            const entry = { start: now, route: route, exact: true };
-            flightStarts[id] = entry;
-            pushFlightToRemote(id, { ...entry, by: currentUserName });
-            changed = true;
-          }
-        } else {
-          if (prevState === "Traveling" && flightStarts[id]) {
-            landedTimestamps[id] = now;
-            if (activeAlarms[id]) playSustainedAlarm(isAlly);
-            setTimeout(() => { delete landedTimestamps[id]; renderTables(); }, 5000);
-          }
-          if (flightStarts[id]) {
-            delete flightStarts[id];
-            if (hadPriorState && prevState === "Traveling") pushFlightToRemote(id, null);
-            changed = true;
-          }
-        }
-        lastKnownStates[prevKey] = state;
-      }
-      if (changed) saveFlightStarts();
     }
 
     async function autoClearPostWarState(memberIds, factionId) {
@@ -884,7 +832,7 @@ function pickBetterFlight(a, b) {
             const prof = data.profile || data;
             const rawRev = prof ? prof.revivable : undefined;
             const isRevivable = rawRev === true || Number(rawRev) === 1;
-            const entry = { revivable: isRevivable, at: (Date.now() / 1000) | 0, hospUntil: hospMark };
+            const entry = { revivable: isRevivable, at: nowTctEpochSec(), hospUntil: hospMark };
             reviveCache[id] = entry;
             saveLocalRevives();
             enemyHospTracker[id] = { inHosp: true, until: hospMark, checkedForUntil: hospMark };
@@ -926,7 +874,7 @@ function pickBetterFlight(a, b) {
       migrateLegacy(id);
       const key = callerKey(id, currentUserName);
       const cur = targetFlags[key];
-      const now = (Date.now() / 1000) | 0;
+      const now = nowTctEpochSec();
       let nextVal = null;
       if (!cur) {
         nextVal = { type: "med", by: currentUserName, at: now };
@@ -996,7 +944,7 @@ function pickBetterFlight(a, b) {
             if (targetFlags[id]) delete targetFlags[id];
             pushFlagToRemote(id, null, true);
           } else {
-            const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || ((Date.now() / 1000) | 0)) };
+            const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || nowTctEpochSec()) };
             targetFlags[id] = latest;
             pushFlagToRemote(id, latest, true);
           }
@@ -1228,7 +1176,7 @@ function pickBetterFlight(a, b) {
     let landedTimestamps = {};
     try {
       const savedFlights = JSON.parse(localStorage.getItem("razers_flight_starts") || "{}");
-      const nowSec = Math.floor(Date.now() / 1000);
+      const nowSec = nowTctEpochSec();
       for (const [uid, info] of Object.entries(savedFlights)) {
         if (info && info.start && (nowSec - info.start) < FLIGHT_MAX_AGE_SEC) flightStarts[uid] = info;
       }
@@ -1238,7 +1186,7 @@ function pickBetterFlight(a, b) {
     }
     function updateFlightTrackers(factionData, isAlly) {
       if (!factionData || !factionData.members) return;
-      const now = (Date.now() / 1000) | 0;
+      const now = nowTctEpochSec();
       let changed = false;
       for (const uid in flightStarts) {
         if ((now - flightStarts[uid].start) >= FLIGHT_MAX_AGE_SEC) {
@@ -1253,19 +1201,30 @@ function pickBetterFlight(a, b) {
         const state = m.rawState;
         const prevKey = id + (isAlly ? "_ally" : "_enemy");
         const prevState = lastKnownStates[prevKey];
+        const hadPriorState = Object.prototype.hasOwnProperty.call(lastKnownStates, prevKey);
         if (state === "Traveling") {
           const route = m.label;
+          const transitionSeen = Boolean(hadPriorState && prevState && prevState !== "Traveling");
           const existing = flightStarts[id];
-          if (!existing || existing.route !== route) {
-            const isExact = Boolean(prevState && prevState !== "Traveling");
-            const entry = { start: now, route: route, exact: isExact };
+
+          if (!existing) {
+            const entry = { start: now, route: route, exact: transitionSeen };
             flightStarts[id] = entry;
-            pushFlightToRemote(id, { ...entry, by: currentUserName });
+            if (transitionSeen) {
+              pushFlightToRemote(id, entry);
+            }
             changed = true;
-          } else if (prevState && prevState !== "Traveling" && !existing.exact) {
+          } else if (existing.route !== route) {
+            const entry = { start: now, route: route, exact: transitionSeen };
+            flightStarts[id] = entry;
+            if (transitionSeen) {
+              pushFlightToRemote(id, entry);
+            }
+            changed = true;
+          } else if (transitionSeen && !existing.exact) {
             const entry = { start: now, route: route, exact: true };
             flightStarts[id] = entry;
-            pushFlightToRemote(id, { ...entry, by: currentUserName });
+            pushFlightToRemote(id, entry);
             changed = true;
           }
         } else {
@@ -1512,7 +1471,7 @@ function pickBetterFlight(a, b) {
       if (warInfo.target > 0) warTargetTextEl.textContent = warInfo.type === "Ranked War" ? "Lead: " + absDiff.toLocaleString() + " / " + warInfo.target.toLocaleString() + " Target" : "Target: " + warInfo.target.toLocaleString();
       else warTargetTextEl.textContent = warInfo.type;
       if (warInfo.type === "Ranked War" && warInfo.target > 0 && warInfo.start > 0) {
-        const nowSec = (Date.now() / 1000) | 0;
+        const nowSec = nowTctEpochSec();
         const elapsedHours = Math.max(0, (nowSec - warInfo.start) / 3600);
         const currentDecayedSteps = elapsedHours >= 25 ? Math.min(99, Math.floor(elapsedHours - 24)) : 0;
         const remainingFraction = Math.max(0.01, 1 - (currentDecayedSteps * 0.01));
@@ -1611,7 +1570,7 @@ function pickBetterFlight(a, b) {
     function renderChainBadge(factionData, el, isAlly) {
       if (!factionData || !factionData.chain) { el.textContent = "⛓️ None"; el.className = "chain-badge"; return; }
       const c = factionData.chain;
-      const now = (Date.now() / 1000) | 0;
+      const now = nowTctEpochSec();
       if (c.cooldown > 0 && c.cooldown - now > 0) { el.textContent = "⛓️ " + (c.current || 0) + " (CD " + formatMMSS(c.cooldown - now) + ")"; el.className = "chain-badge chain-cooldown"; return; }
       if (!c.current) { el.textContent = "⛓️ None"; el.className = "chain-badge"; return; }
       const timeoutRem = c.timeout > 0 ? Math.max(0, c.end - now) : 0;
@@ -1631,7 +1590,7 @@ function pickBetterFlight(a, b) {
       if (diff <= 120) return "timer-red-fast";
       if (diff <= 300) return "timer-yellow-slow";
       if (diff <= 600) return "timer-yellow-solid";
-      return "";
+      return state === "Hospital" ? "timer-hospital" : "";
     }
     function isAttackReady(state, diff, city) {
       if (state === "Fallen" || myCityCode === "TRAVEL" || city !== myCityCode) return false;
@@ -1644,7 +1603,7 @@ function pickBetterFlight(a, b) {
         return;
       }
       pruneInvalidFlags();
-      const now = (Date.now() / 1000) | 0;
+      const now = nowTctEpochSec();
       let list = factionData.members.map(m => {
         if ((m.rawState === "Hospital" || m.rawState === "Jail") && m.until > 0 && (now - m.until) >= 8) {
           const newTier = m.city === "TC" ? 4 : 3;
@@ -1666,7 +1625,7 @@ function pickBetterFlight(a, b) {
           const fInfo = flightStarts[m.id];
           const prefix = fInfo.exact ? "+" : "\~+";
           timerText = prefix + formatElapsedFlight(Math.max(0, now - fInfo.start));
-          alertClass = "timer-flight";
+          alertClass = fInfo.exact ? "timer-flight-exact" : "timer-flight-approx";
           dataAttrs = ' data-flight-start="' + fInfo.start + '" data-flight-prefix="' + prefix + '" data-id="' + m.id + '" data-ally="' + (isAlly ? "1" : "0") + '"';
         } else if (m.until > 0) {
           timerText = formatHHMMSS(diff);
@@ -1719,7 +1678,7 @@ function pickBetterFlight(a, b) {
     function tickTimers() {
       if (document.hidden) return;
       updateClocks();
-      const now = (Date.now() / 1000) | 0;
+      const now = nowTctEpochSec();
       let needsFullResort = false;
       for (let i = 0; i < liveFlightNodes.length; i++) {
         const el = liveFlightNodes[i];
@@ -1747,6 +1706,7 @@ function pickBetterFlight(a, b) {
         else if (diff <= 120) el.className = "timer timer-red-fast";
         else if (diff <= 300) el.className = "timer timer-yellow-slow";
         else if (diff <= 600) el.className = "timer timer-yellow-solid";
+        else el.className = state === "Hospital" ? "timer timer-hospital" : "timer ";
         if (diff <= 20 && diff > 0) {
           const atkBtn = el.parentElement.nextElementSibling && el.parentElement.nextElementSibling.firstElementChild;
           if (atkBtn && !atkBtn.classList.contains("atk-ready") && isAttackReady(state, diff, el.dataset.city)) atkBtn.classList.add("atk-ready");
