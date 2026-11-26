@@ -19,7 +19,9 @@
     .find-box { width: 110px; }
     select { padding: 7px 8px; border-radius: 5px; border: 1px solid #333; background: #1e1e1e; color: #ccc; font-size: 0.83rem; cursor: pointer; font-weight: 600; }
     select:hover { background: #2c2c2c; color: #fff; }
-    .sub-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #999; margin-bottom: 8px; gap: 8px; }
+    .sub-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #999; margin-bottom: 8px; gap: 8px; }
+    .sub-bar-right { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .clock-badge { color: #cfd8dc; font-family: monospace; font-size: 0.76rem; white-space: nowrap; }
     .loc-badge { color: #90caf9; font-weight: 600; white-space: nowrap; }
     .war-banner { display: none; background: #1a1a1a; border: 1px solid #303030; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; }
     .war-scores-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; flex-wrap: wrap; }
@@ -27,7 +29,7 @@
     .war-team-enemy { color: #e57373; }
     .war-center-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; flex-wrap: wrap; }
     .lead-badge { padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #2c2c2c; color: #ddd; }
-    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border-color: #4caf50; border: 1px solid #4caf50; }
+    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border: 1px solid #4caf50; }
     .lead-enemy { background: rgba(198, 40, 40, 0.3); color: #ef9a9a; border: 1px solid #e53935; }
     .target-text { color: #bbb; font-family: monospace; font-size: 0.8rem; }
     .war-end-countdown { color: #90caf9; font-family: monospace; font-size: 0.8rem; font-weight: 700; }
@@ -180,7 +182,10 @@
   </div>
   <div class="sub-bar">
     <span id="statusBar">Enter a Public Torn API key and click Load.</span>
-    <span class="loc-badge" id="myLocBadge">Your Location: --</span>
+    <div class="sub-bar-right">
+      <span class="clock-badge" id="clockBadge">Local: --:--:-- | TCT: --:--:--</span>
+      <span class="loc-badge" id="myLocBadge">Your Location: --</span>
+    </div>
   </div>
   <div class="war-banner" id="warBanner">
     <div class="war-scores-row">
@@ -273,6 +278,7 @@
     const FLAGS_DB_URL = "https://razerswartracker-default-rtdb.firebaseio.com";
     const REVIVE_STEP_DELAY_MS = 350;
     const MAX_LOG_ENTRIES = 100;
+    const FLIGHT_MAX_AGE_SEC = 28800;
 
     const CITY_CODES = [
       { keys: ["torn"], code: "TC" },
@@ -343,6 +349,15 @@
     }
     function saveLocalRevives() {
       try { localStorage.setItem("razers_revive_cache", JSON.stringify(reviveCache)); } catch(e) {}
+    }
+
+    function updateClocks() {
+      const clockEl = document.getElementById("clockBadge");
+      if (!clockEl) return;
+      const now = new Date();
+      const localStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const tctStr = now.toLocaleTimeString("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      clockEl.textContent = "Local: " + localStr + " | TCT: " + tctStr;
     }
 
     function pruneInvalidFlags() {
@@ -608,6 +623,54 @@
       } catch(e) {}
     }
 
+    async function pushFlightToRemote(uid, payload) {
+      const base = getDbBaseUrl();
+      if (!base) return;
+      try {
+        await fetch(base + "/flights/" + encodeURIComponent(String(uid)) + ".json", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch(e) {}
+    }
+
+    async function syncFlightsFromRemote() {
+      const base = getDbBaseUrl();
+      if (!base) return;
+      const nowSec = Math.floor(Date.now() / 1000);
+      try {
+        const res = await fetch(base + "/flights.json");
+        if (!res.ok) return;
+        const remote = await res.json();
+        const next = {};
+        const staleIds = [];
+        if (remote && typeof remote === "object") {
+          for (const [uid, info] of Object.entries(remote)) {
+            const start = info ? Number(info.start || info.departedAt || 0) : 0;
+            if (!start || (nowSec - start) >= FLIGHT_MAX_AGE_SEC) {
+              staleIds.push(uid);
+              continue;
+            }
+            const localExisting = flightStarts[uid];
+            const earliestStart = (localExisting && localExisting.route === info.route && localExisting.start < start)
+              ? localExisting.start
+              : start;
+            next[String(uid)] = {
+              start: earliestStart,
+              route: String(info.route || ""),
+              exact: info.exact !== false || Boolean(localExisting && localExisting.exact)
+            };
+          }
+        }
+        flightStarts = next;
+        saveFlightStarts();
+        if (staleIds.length) {
+          await Promise.all(staleIds.map(uid => pushFlightToRemote(uid, null)));
+        }
+      } catch(e) {}
+    }
+
     async function autoClearPostWarState(memberIds, factionId) {
       const idSet = new Set((memberIds || []).map(String));
       if (!idSet.size) return;
@@ -615,10 +678,12 @@
       const flagKeysToDelete = Object.keys(targetFlags).filter(k => idSet.has(splitFlagKey(k).uid));
       const clearedPlayers = new Set(flagKeysToDelete.map(k => splitFlagKey(k).uid)).size;
       const reviveIdsToDelete = Object.keys(reviveCache).filter(uid => idSet.has(String(uid)));
+      const flightIdsToDelete = Object.keys(flightStarts).filter(uid => idSet.has(String(uid)));
 
       if (flagKeysToDelete.length) setSuppressWipeLog(8000);
       flagKeysToDelete.forEach(k => { delete targetFlags[k]; });
       reviveIdsToDelete.forEach(uid => { delete reviveCache[uid]; });
+      flightIdsToDelete.forEach(uid => { delete flightStarts[uid]; });
       idSet.forEach(uid => { delete enemyHospTracker[uid]; });
 
       if (flagKeysToDelete.length) {
@@ -627,11 +692,13 @@
         saveLocalFlags();
       }
       if (reviveIdsToDelete.length) saveLocalRevives();
+      if (flightIdsToDelete.length) saveFlightStarts();
 
-      if (flagKeysToDelete.length || reviveIdsToDelete.length) {
+      if (flagKeysToDelete.length || reviveIdsToDelete.length || flightIdsToDelete.length) {
         await Promise.all([
           ...flagKeysToDelete.map(k => pushFlagToRemote(k, null, true)),
-          ...reviveIdsToDelete.map(uid => pushReviveToRemote(uid, null))
+          ...reviveIdsToDelete.map(uid => pushReviveToRemote(uid, null)),
+          ...flightIdsToDelete.map(uid => pushFlightToRemote(uid, null))
         ]);
         if (clearedPlayers > 0) {
           await appendFlagAuditLog("war_end_clear", clearedPlayers, factionId);
@@ -670,7 +737,7 @@
         warStateHistory[fKey] = { active: true, warKey, oppId: Number(warInfo.oppId), oppMembers: enemyMemberIds };
         saveWarStateHistory();
       } else if (warEndedNow) {
-        const shouldClean = Boolean((prev && prev.active) || Object.keys(targetFlags).length > 0 || Object.keys(reviveCache).length > 0);
+        const shouldClean = Boolean((prev && prev.active) || Object.keys(targetFlags).length > 0 || Object.keys(reviveCache).length > 0 || Object.keys(flightStarts).length > 0);
         if (shouldClean && (!prev || prev.cleanedForWarKey !== (warKey || prev.warKey || "ended"))) {
           const allWarMemberIds = Array.from(new Set([...allyMemberIds, ...enemyMemberIds]));
           await autoClearPostWarState(allWarMemberIds, factionId);
@@ -682,7 +749,7 @@
             oppMembers: []
           };
           saveWarStateHistory();
-          statusBarEl.textContent = "War ended • Auto-cleared Med/On-It & Revive flags";
+          statusBarEl.textContent = "War ended • Auto-cleared Med/On-It, Flight & Revive flags";
         }
       }
     }
@@ -1035,16 +1102,19 @@
     let flagsIntervalId = null;
     let lastFlagsJson = "";
     let lastRevivesJson = "";
+    let lastFlightsJson = "";
     function setupFlagsInterval() {
       if (flagsIntervalId) clearInterval(flagsIntervalId);
       flagsIntervalId = setInterval(async () => {
         if (document.hidden || !keyInput.value.trim()) return;
-        await Promise.all([syncFlagsFromRemote(), syncRevivesFromRemote()]);
+        await Promise.all([syncFlagsFromRemote(), syncRevivesFromRemote(), syncFlightsFromRemote()]);
         const currentFlagsJson = JSON.stringify(targetFlags);
         const currentRevivesJson = JSON.stringify(reviveCache);
-        if (currentFlagsJson !== lastFlagsJson || currentRevivesJson !== lastRevivesJson) {
+        const currentFlightsJson = JSON.stringify(flightStarts);
+        if (currentFlagsJson !== lastFlagsJson || currentRevivesJson !== lastRevivesJson || currentFlightsJson !== lastFlightsJson) {
           lastFlagsJson = currentFlagsJson;
           lastRevivesJson = currentRevivesJson;
+          lastFlightsJson = currentFlightsJson;
           renderTables();
         }
       }, 2000);
@@ -1075,7 +1145,7 @@
       const savedFlights = JSON.parse(localStorage.getItem("razers_flight_starts") || "{}");
       const nowSec = Math.floor(Date.now() / 1000);
       for (const [uid, info] of Object.entries(savedFlights)) {
-        if (info && info.start && (nowSec - info.start) < 28800) flightStarts[uid] = info;
+        if (info && info.start && (nowSec - info.start) < FLIGHT_MAX_AGE_SEC) flightStarts[uid] = info;
       }
     } catch (e) { flightStarts = {}; }
     function saveFlightStarts() {
@@ -1086,17 +1156,31 @@
       const now = (Date.now() / 1000) | 0;
       let changed = false;
       for (const uid in flightStarts) {
-        if ((now - flightStarts[uid].start) >= 28800) { delete flightStarts[uid]; changed = true; }
+        if ((now - flightStarts[uid].start) >= FLIGHT_MAX_AGE_SEC) {
+          delete flightStarts[uid];
+          pushFlightToRemote(uid, null);
+          changed = true;
+        }
       }
       for (let i = 0; i < factionData.members.length; i++) {
         const m = factionData.members[i];
-        const id = m.id;
+        const id = String(m.id);
         const state = m.rawState;
-        const prevState = lastKnownStates[id + (isAlly ? "_ally" : "_enemy")];
+        const prevKey = id + (isAlly ? "_ally" : "_enemy");
+        const prevState = lastKnownStates[prevKey];
         if (state === "Traveling") {
           const route = m.label;
-          if (!flightStarts[id] || flightStarts[id].route !== route) {
-            flightStarts[id] = { start: now, route: route, exact: Boolean(prevState && prevState !== "Traveling") };
+          const existing = flightStarts[id];
+          if (!existing || existing.route !== route) {
+            const isExact = Boolean(prevState && prevState !== "Traveling");
+            const entry = { start: now, route: route, exact: isExact };
+            flightStarts[id] = entry;
+            pushFlightToRemote(id, { ...entry, by: currentUserName });
+            changed = true;
+          } else if (prevState && prevState !== "Traveling" && !existing.exact) {
+            const entry = { start: now, route: route, exact: true };
+            flightStarts[id] = entry;
+            pushFlightToRemote(id, { ...entry, by: currentUserName });
             changed = true;
           }
         } else {
@@ -1105,9 +1189,13 @@
             if (activeAlarms[id]) playSustainedAlarm(isAlly);
             setTimeout(() => { delete landedTimestamps[id]; renderTables(); }, 5000);
           }
-          if (flightStarts[id]) { delete flightStarts[id]; changed = true; }
+          if (flightStarts[id]) {
+            delete flightStarts[id];
+            pushFlightToRemote(id, null);
+            changed = true;
+          }
         }
-        lastKnownStates[id + (isAlly ? "_ally" : "_enemy")] = state;
+        lastKnownStates[prevKey] = state;
       }
       if (changed) saveFlightStarts();
     }
@@ -1384,7 +1472,7 @@
       if (!key) return;
       statusBarEl.textContent = "Syncing live data...";
       try {
-        await Promise.all([syncFlagsFromRemote(), syncRevivesFromRemote()]);
+        await Promise.all([syncFlagsFromRemote(), syncRevivesFromRemote(), syncFlightsFromRemote()]);
         const userData = await fetchTornApi("/v2/user?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         const detectedName = (userData.profile && userData.profile.name) || userData.name;
         const detectedId = (userData.profile && (userData.profile.id || userData.profile.player_id)) || userData.id || userData.player_id || 0;
@@ -1545,6 +1633,7 @@
     }
     function tickTimers() {
       if (document.hidden) return;
+      updateClocks();
       const now = (Date.now() / 1000) | 0;
       let needsFullResort = false;
       for (let i = 0; i < liveFlightNodes.length; i++) {
@@ -1581,6 +1670,7 @@
       if (needsFullResort) renderTables();
       if (cachedData.ally || cachedData.enemy) { updateChains(); if (activeWarInfo) refreshWarBannerDynamic(activeWarInfo); }
     }
+    updateClocks();
     setInterval(tickTimers, 1000);
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) return;
