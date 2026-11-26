@@ -37,8 +37,8 @@
     .board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; touch-action: pan-y; }
     @media (max-width: 850px) { .board { grid-template-columns: 1fr; } }
     .panel { background: #181818; border-radius: 6px; padding: 10px; border: 1px solid #2a2a2a; overflow-x: auto; contain: content; }
-    .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 8px; }
-    .panel-header-left { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: visible; }
+    .panel-header { display: flex; flex-direction: column; align-items: stretch; border-bottom: 1px solid #2e2e2e; padding-bottom: 6px; margin-bottom: 6px; gap: 6px; }
+    .panel-header-left { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; width: 100%; overflow: visible; }
     .panel-header h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; overflow: hidden; }
     .faction-title-link { color: #fff; text-decoration: none; display: inline-flex; align-items: center; min-width: 0; max-width: 88px; }
     .faction-title-link:hover { opacity: 0.85; }
@@ -64,12 +64,12 @@
     .med-scan-btn.scanning { border-color: #ef5350; color: #fff; background: rgba(239, 83, 80, 0.22); }
     .med-scan-icon { width: 15px; height: 15px; display: block; flex-shrink: 0; }
     .master-alarm-btn.alarm-active { background: rgba(253, 216, 53, 0.2); color: #fdd835; border-color: #fdd835; }
-    .clear-flags-btn { margin-left: 4px; }
+    .clear-flags-btn { margin-left: 2px; }
     .collapse-btn { background: #252525; color: #aaa; border: 1px solid #383838; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
     .collapse-btn:hover { background: #333; color: #fff; }
     .panel.collapsed table, .panel.collapsed .chain-badge { display: none; }
     .panel.collapsed { padding-bottom: 6px; border-style: dashed; }
-    .chain-badge { font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; flex-shrink: 0; }
+    .chain-badge { align-self: flex-start; width: fit-content; font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: #252525; color: #aaa; border: 1px solid #383838; white-space: nowrap; font-family: monospace; flex-shrink: 0; }
     .chain-active { background: rgba(46, 125, 50, 0.25); color: #81c784; border-color: #4caf50; }
     .chain-cooldown { background: #b3e5fc; color: #01579b; border-color: #4fc3f7; box-shadow: 0 0 6px rgba(179, 229, 252, 0.4); }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
