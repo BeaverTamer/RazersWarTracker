@@ -635,13 +635,29 @@
       } catch(e) {}
     }
 
+function pickBetterFlight(a, b) {
+      if (!a) return b || null;
+      if (!b) return a;
+      if (a.route && b.route && a.route !== b.route) {
+        return (Number(b.at || b.start || 0) >= Number(a.at || a.start || 0)) ? b : a;
+      }
+      const aExact = Boolean(a.exact);
+      const bExact = Boolean(b.exact);
+      if (aExact !== bExact) return aExact ? a : b;
+      const aStart = Number(a.start || 0);
+      const bStart = Number(b.start || 0);
+      if (!aStart) return b;
+      if (!bStart) return a;
+      return aStart <= bStart ? a : b;
+    }
+
     async function syncFlightsFromRemote() {
       const base = getDbBaseUrl();
       if (!base) return;
-      const nowSec = Math.floor(Date.now() / 1000);
+      const nowSec = nowTctEpochSec();
       try {
         const res = await fetch(base + "/flights.json");
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("Flights read HTTP " + res.status);
         const remote = await res.json();
         const next = {};
         const staleIds = [];
@@ -652,15 +668,17 @@
               staleIds.push(uid);
               continue;
             }
-            const localExisting = flightStarts[uid];
-            const earliestStart = (localExisting && localExisting.route === info.route && localExisting.start < start)
-              ? localExisting.start
-              : start;
-            next[String(uid)] = {
-              start: earliestStart,
+            const candidate = {
+              start: start,
               route: String(info.route || ""),
-              exact: info.exact !== false || Boolean(localExisting && localExisting.exact)
+              exact: Boolean(info.exact),
+              at: Number(info.at || start)
             };
+            const merged = pickBetterFlight(candidate, flightStarts[uid]);
+            next[String(uid)] = merged;
+            if (merged && (merged.start !== candidate.start || merged.exact !== candidate.exact) && merged.exact) {
+              pushFlightToRemote(uid, { start: merged.start, route: merged.route, exact: merged.exact, by: currentUserName });
+            }
           }
         }
         flightStarts = next;
@@ -668,7 +686,69 @@
         if (staleIds.length) {
           await Promise.all(staleIds.map(uid => pushFlightToRemote(uid, null)));
         }
-      } catch(e) {}
+      } catch(e) {
+        statusBarEl.textContent = "Flight sync read error: " + (e && e.message ? e.message : "Check Firebase /flights rules");
+      }
+    }
+
+    function updateFlightTrackers(factionData, isAlly) {
+      if (!factionData || !factionData.members) return;
+      const now = nowTctEpochSec();
+      let changed = false;
+      for (const uid in flightStarts) {
+        if ((now - flightStarts[uid].start) >= FLIGHT_MAX_AGE_SEC) {
+          delete flightStarts[uid];
+          pushFlightToRemote(uid, null);
+          changed = true;
+        }
+      }
+      for (let i = 0; i < factionData.members.length; i++) {
+        const m = factionData.members[i];
+        const id = String(m.id);
+        const state = m.rawState;
+        const prevKey = id + (isAlly ? "_ally" : "_enemy");
+        const prevState = lastKnownStates[prevKey];
+        const hadPriorState = Object.prototype.hasOwnProperty.call(lastKnownStates, prevKey);
+        if (state === "Traveling") {
+          const route = m.label;
+          const transitionSeen = Boolean(hadPriorState && prevState && prevState !== "Traveling");
+          const existing = flightStarts[id];
+
+          if (!existing) {
+            const entry = { start: now, route: route, exact: transitionSeen };
+            flightStarts[id] = entry;
+            if (transitionSeen) {
+              pushFlightToRemote(id, { ...entry, by: currentUserName });
+            }
+            changed = true;
+          } else if (existing.route !== route) {
+            const entry = { start: now, route: route, exact: transitionSeen };
+            flightStarts[id] = entry;
+            if (transitionSeen) {
+              pushFlightToRemote(id, { ...entry, by: currentUserName });
+            }
+            changed = true;
+          } else if (transitionSeen && !existing.exact) {
+            const entry = { start: now, route: route, exact: true };
+            flightStarts[id] = entry;
+            pushFlightToRemote(id, { ...entry, by: currentUserName });
+            changed = true;
+          }
+        } else {
+          if (prevState === "Traveling" && flightStarts[id]) {
+            landedTimestamps[id] = now;
+            if (activeAlarms[id]) playSustainedAlarm(isAlly);
+            setTimeout(() => { delete landedTimestamps[id]; renderTables(); }, 5000);
+          }
+          if (flightStarts[id]) {
+            delete flightStarts[id];
+            if (hadPriorState && prevState === "Traveling") pushFlightToRemote(id, null);
+            changed = true;
+          }
+        }
+        lastKnownStates[prevKey] = state;
+      }
+      if (changed) saveFlightStarts();
     }
 
     async function autoClearPostWarState(memberIds, factionId) {
