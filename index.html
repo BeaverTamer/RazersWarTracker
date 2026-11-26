@@ -107,6 +107,7 @@
     .flag-arrow { color: #888; font-weight: 700; flex-shrink: 0; }
     .flag-by { color: #a5a5a5; overflow: hidden; text-overflow: ellipsis; }
     .flag-by-latest { color: #fff; font-weight: 700; }
+    .flag-by-outsider { color: #fdd835 !important; font-weight: 700; }
     .Okay { color: #66bb6a; }
     .Hospital { color: #ef5350; font-weight: 600; }
     .Jail { color: #ffa726; font-weight: 600; }
@@ -301,6 +302,7 @@
     let myCityCode = "TC";
     let currentUserName = sessionStorage.getItem("razers_user_name") || "Razer";
     let currentUserId = Number(sessionStorage.getItem("razers_user_id") || 0);
+    let currentUserFactionId = Number(sessionStorage.getItem("razers_user_faction_id") || 0);
     let cachedData = { ally: null, enemy: null };
     let activeWarInfo = null;
     let apiIntervalId = null;
@@ -353,6 +355,7 @@
       try { localStorage.setItem("razers_revive_cache", JSON.stringify(reviveCache)); } catch(e) {}
     }
 
+    // TCT is UTC+0; epoch seconds are timezone-invariant across all clients
     function nowTctEpochSec() {
       return Math.floor(Date.now() / 1000);
     }
@@ -425,6 +428,16 @@
       calls.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
       return calls;
     }
+    function getActiveFlaggerFactionId() {
+      if (currentUserFactionId) return Number(currentUserFactionId);
+      if (cachedData.ally && cachedData.ally.ID && currentUserId) {
+        const onAlly = Array.isArray(cachedData.ally.members) &&
+          cachedData.ally.members.some(m => String(m.id) === String(currentUserId));
+        if (onAlly) return Number(cachedData.ally.ID);
+      }
+      if (typeof selectedFactionId === "number") return Number(selectedFactionId);
+      return Number(OUR_FACTIONS[0].id);
+    }
     function migrateLegacy(id) {
       const bare = targetFlags[id];
       const hasPersonal = Object.keys(targetFlags).some(k => {
@@ -433,7 +446,12 @@
       });
       if (!hasPersonal && bare && bare.by) {
         const k = callerKey(id, bare.by);
-        targetFlags[k] = { type: bare.type, by: bare.by, at: bare.at };
+        targetFlags[k] = {
+          type: bare.type,
+          by: bare.by,
+          byFactionId: Number(bare.byFactionId || 0),
+          at: bare.at
+        };
         pushFlagToRemote(k, targetFlags[k], true);
       }
     }
@@ -443,7 +461,12 @@
         delete targetFlags[id];
         return null;
       }
-      const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || nowTctEpochSec()) };
+      const latest = {
+        type: calls[0].type,
+        by: calls[0].by,
+        byFactionId: Number(calls[0].byFactionId || 0),
+        at: Number(calls[0].at || nowTctEpochSec())
+      };
       targetFlags[id] = latest;
       return latest;
     }
@@ -475,7 +498,7 @@
         }
       }
     }
-    function rememberUser(name, id) {
+    function rememberUser(name, id, factionId) {
       if (name) {
         currentUserName = String(name);
         sessionStorage.setItem("razers_user_name", currentUserName);
@@ -484,6 +507,11 @@
       if (n) {
         currentUserId = n;
         sessionStorage.setItem("razers_user_id", String(n));
+      }
+      const fid = Number(factionId || 0);
+      if (fid) {
+        currentUserFactionId = fid;
+        sessionStorage.setItem("razers_user_faction_id", String(fid));
       }
     }
     function getDbBaseUrl() {
@@ -574,7 +602,12 @@
         if (remote && typeof remote === "object") {
           for (const [uid, f] of Object.entries(remote)) {
             if (f && (f.type === "med" || f.type === "on_it") && f.by) {
-              next[String(uid)] = { type: f.type, by: String(f.by), at: Number(f.at || 0) };
+              next[String(uid)] = {
+                type: f.type,
+                by: String(f.by),
+                byFactionId: Number(f.byFactionId || 0),
+                at: Number(f.at || 0)
+              };
             }
           }
         }
@@ -671,7 +704,7 @@
         const res = await fetch(base + "/flights.json");
         if (!res.ok) throw new Error("Flights read HTTP " + res.status);
         const remote = await res.json();
-        const next = {};
+        const next = { ...flightStarts };
         const staleIds = [];
         if (remote && typeof remote === "object") {
           for (const [uid, info] of Object.entries(remote)) {
@@ -679,6 +712,7 @@
             const start = rawStart > nowSec ? nowSec : rawStart;
             if (!start || (nowSec - start) >= FLIGHT_MAX_AGE_SEC) {
               staleIds.push(uid);
+              delete next[uid];
               continue;
             }
             const candidate = {
@@ -687,11 +721,7 @@
               exact: Boolean(info.exact),
               at: Number(info.at || start)
             };
-            const merged = pickBetterFlight(candidate, flightStarts[uid]);
-            next[String(uid)] = merged;
-            if (merged && (merged.start !== candidate.start || merged.exact !== candidate.exact) && merged.exact) {
-              pushFlightToRemote(uid, merged);
-            }
+            next[String(uid)] = pickBetterFlight(candidate, next[uid]);
           }
         }
         flightStarts = next;
@@ -875,12 +905,13 @@
       const key = callerKey(id, currentUserName);
       const cur = targetFlags[key];
       const now = nowTctEpochSec();
+      const flaggerFactionId = getActiveFlaggerFactionId();
       let nextVal = null;
       if (!cur) {
-        nextVal = { type: "med", by: currentUserName, at: now };
+        nextVal = { type: "med", by: currentUserName, byFactionId: flaggerFactionId, at: now };
         targetFlags[key] = nextVal;
       } else if (cur.type === "med") {
-        nextVal = { type: "on_it", by: currentUserName, at: now };
+        nextVal = { type: "on_it", by: currentUserName, byFactionId: flaggerFactionId, at: now };
         targetFlags[key] = nextVal;
       } else {
         delete targetFlags[key];
@@ -944,7 +975,12 @@
             if (targetFlags[id]) delete targetFlags[id];
             pushFlagToRemote(id, null, true);
           } else {
-            const latest = { type: calls[0].type, by: calls[0].by, at: Number(calls[0].at || nowTctEpochSec()) };
+            const latest = {
+              type: calls[0].type,
+              by: calls[0].by,
+              byFactionId: Number(calls[0].byFactionId || 0),
+              at: Number(calls[0].at || nowTctEpochSec())
+            };
             targetFlags[id] = latest;
             pushFlagToRemote(id, latest, true);
           }
@@ -1204,24 +1240,25 @@
         const hadPriorState = Object.prototype.hasOwnProperty.call(lastKnownStates, prevKey);
         if (state === "Traveling") {
           const route = m.label;
-          const transitionSeen = Boolean(hadPriorState && prevState && prevState !== "Traveling");
+          // Only mark exact if we observed a non-traveling -> traveling transition on this client
+          const trulyWitnessed = Boolean(hadPriorState && prevState && prevState !== "Traveling");
           const existing = flightStarts[id];
 
           if (!existing) {
-            const entry = { start: now, route: route, exact: transitionSeen };
+            const entry = { start: now, route: route, exact: trulyWitnessed };
             flightStarts[id] = entry;
-            if (transitionSeen) {
+            if (trulyWitnessed) {
               pushFlightToRemote(id, entry);
             }
             changed = true;
           } else if (existing.route !== route) {
-            const entry = { start: now, route: route, exact: transitionSeen };
+            const entry = { start: now, route: route, exact: trulyWitnessed };
             flightStarts[id] = entry;
-            if (transitionSeen) {
+            if (trulyWitnessed) {
               pushFlightToRemote(id, entry);
             }
             changed = true;
-          } else if (transitionSeen && !existing.exact) {
+          } else if (trulyWitnessed && !existing.exact) {
             const entry = { start: now, route: route, exact: true };
             flightStarts[id] = entry;
             pushFlightToRemote(id, entry);
@@ -1517,10 +1554,12 @@
       statusBarEl.textContent = "Syncing live data...";
       try {
         await Promise.all([syncFlagsFromRemote(), syncRevivesFromRemote(), syncFlightsFromRemote()]);
-        const userData = await fetchTornApi("/v2/user?selections=basic&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
+        const userData = await fetchTornApi("/v2/user?selections=basic,faction&key=" + encodeURIComponent(key) + "&comment=RazersWarTracker");
         const detectedName = (userData.profile && userData.profile.name) || userData.name;
         const detectedId = (userData.profile && (userData.profile.id || userData.profile.player_id)) || userData.id || userData.player_id || 0;
-        if (detectedName || detectedId) rememberUser(detectedName, detectedId);
+        const userFactionObj = userData.faction || {};
+        const detectedFactionId = Number(userFactionObj.id || userFactionObj.faction_id || (userData.profile && userData.profile.faction_id) || 0);
+        if (detectedName || detectedId || detectedFactionId) rememberUser(detectedName, detectedId, detectedFactionId);
         const status = (userData.profile && userData.profile.status) || userData.status || {};
         if (status && status.state) {
           if (status.state === "Traveling") { myCityCode = "TRAVEL"; myLocBadgeEl.textContent = "Your Location: Flying"; }
@@ -1604,6 +1643,7 @@
       }
       pruneInvalidFlags();
       const now = nowTctEpochSec();
+      const rosterFactionId = Number(factionData.ID || 0);
       let list = factionData.members.map(m => {
         if ((m.rawState === "Hospital" || m.rawState === "Jail") && m.until > 0 && (now - m.until) >= 8) {
           const newTier = m.city === "TC" ? 4 : 3;
@@ -1651,7 +1691,14 @@
           ? (myType === "med" ? "Medding. Tap for On It." : "On It. Tap for Off.")
           : "Tap for Medding, again for On It, again for Off.";
         const rowFlagClass = (landedTimestamps[m.id] ? " row-landed" : "") + (flagType ? " row-flagged-" + flagType : "");
-        const namesHtml = calls.map((c, i) => '<span class="flag-by' + (i === 0 ? " flag-by-latest" : "") + '">· ' + escHtml(c.by) + " " + (c.type === "on_it" ? "⚔" : "+") + '</span>').join("");
+        const namesHtml = calls.map((c, i) => {
+          const isOutsider = Boolean(c.byFactionId && rosterFactionId && Number(c.byFactionId) !== rosterFactionId);
+          const nameCls = isOutsider
+            ? "flag-by flag-by-outsider"
+            : ("flag-by" + (i === 0 ? " flag-by-latest" : ""));
+          const suffix = isOutsider ? " (outsider)" : "";
+          return '<span class="' + nameCls + '" title="' + escHtml(c.by + suffix) + '">· ' + escHtml(c.by) + " " + (c.type === "on_it" ? "⚔" : "+") + '</span>';
+        }).join("");
         const subLineHtml = flagType
           ? '<div class="flag-subline flag-' + flagType + '"><span class="flag-arrow">↳</span><span>' + (flagType === "med" ? "+ Medding" : "⚔ On It") + '</span>' + namesHtml + '</div>'
           : "";
@@ -1749,8 +1796,9 @@
       const profile = data.profile || {};
       const pName = profile.name || data.name;
       const pId = profile.id || profile.player_id || data.id || data.player_id || 0;
-      if (pName || pId) rememberUser(pName, pId);
-      return { factionId: Number(faction.id || faction.faction_id || profile.faction_id || 0), factionName: faction.name || faction.faction_name || "no faction", playerName: pName || "This key" };
+      const fId = Number(faction.id || faction.faction_id || profile.faction_id || 0);
+      if (pName || pId || fId) rememberUser(pName, pId, fId);
+      return { factionId: fId, factionName: faction.name || faction.faction_name || "no faction", playerName: pName || "This key" };
     }
     function lockBoard(message) {
       clearSavedKey();
