@@ -438,6 +438,15 @@
       if (typeof selectedFactionId === "number") return Number(selectedFactionId);
       return Number(OUR_FACTIONS[0].id);
     }
+    function isOutsiderFlag(flaggerFactionId) {
+      const fId = Number(flaggerFactionId || 0);
+      if (!fId) return false;
+      const allyId = Number((cachedData.ally && cachedData.ally.ID) || (typeof selectedFactionId === "number" ? selectedFactionId : 0));
+      const enemyId = Number((cachedData.enemy && cachedData.enemy.ID) || (activeWarInfo && activeWarInfo.oppId) || 0);
+      if (allyId && fId === allyId) return false;
+      if (enemyId && fId === enemyId) return false;
+      return Boolean(allyId || enemyId);
+    }
     function migrateLegacy(id) {
       const bare = targetFlags[id];
       const hasPersonal = Object.keys(targetFlags).some(k => {
@@ -1643,7 +1652,6 @@
       }
       pruneInvalidFlags();
       const now = nowTctEpochSec();
-      const rosterFactionId = Number(factionData.ID || 0);
       let list = factionData.members.map(m => {
         if ((m.rawState === "Hospital" || m.rawState === "Jail") && m.until > 0 && (now - m.until) >= 8) {
           const newTier = m.city === "TC" ? 4 : 3;
@@ -1692,7 +1700,7 @@
           : "Tap for Medding, again for On It, again for Off.";
         const rowFlagClass = (landedTimestamps[m.id] ? " row-landed" : "") + (flagType ? " row-flagged-" + flagType : "");
         const namesHtml = calls.map((c, i) => {
-          const isOutsider = Boolean(c.byFactionId && rosterFactionId && Number(c.byFactionId) !== rosterFactionId);
+          const isOutsider = isOutsiderFlag(c.byFactionId);
           const nameCls = isOutsider
             ? "flag-by flag-by-outsider"
             : ("flag-by" + (i === 0 ? " flag-by-latest" : ""));
