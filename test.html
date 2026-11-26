@@ -29,7 +29,7 @@
     .war-team-enemy { color: #e57373; }
     .war-center-info { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; flex-wrap: wrap; }
     .lead-badge { padding: 2px 8px; border-radius: 4px; font-weight: 700; background: #2c2c2c; color: #ddd; }
-    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border: 1px solid #4caf50; }
+    .lead-ally { background: rgba(46, 125, 50, 0.3); color: #a5d6a7; border-color: #4caf50; border: 1px solid #4caf50; }
     .lead-enemy { background: rgba(198, 40, 40, 0.3); color: #ef9a9a; border: 1px solid #e53935; }
     .target-text { color: #bbb; font-family: monospace; font-size: 0.8rem; }
     .war-end-countdown { color: #90caf9; font-family: monospace; font-size: 0.8rem; font-weight: 700; }
@@ -281,6 +281,7 @@
     const REVIVE_STEP_DELAY_MS = 350;
     const MAX_LOG_ENTRIES = 100;
     const FLIGHT_MAX_AGE_SEC = 28800;
+    const FLIGHT_RECENT_FLAG_SEC = 15;
 
     const CITY_CODES = [
       { keys: ["torn"], code: "TC" },
@@ -353,6 +354,7 @@
       try { localStorage.setItem("razers_revive_cache", JSON.stringify(reviveCache)); } catch(e) {}
     }
 
+    // TCT is UTC+0; epoch seconds are timezone-invariant across all clients
     function nowTctEpochSec() {
       return Math.floor(Date.now() / 1000);
     }
@@ -424,6 +426,15 @@
       if (!calls.length && legacy) calls.push(legacy);
       calls.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
       return calls;
+    }
+    function hasRecentFlagForPlayer(uid, nowSec) {
+      const id = String(uid);
+      const calls = getCalls(id);
+      if (calls.some(c => c && Number(c.at || 0) > 0 && (nowSec - Number(c.at)) <= FLIGHT_RECENT_FLAG_SEC)) {
+        return true;
+      }
+      const direct = targetFlags[id];
+      return Boolean(direct && Number(direct.at || 0) > 0 && (nowSec - Number(direct.at)) <= FLIGHT_RECENT_FLAG_SEC);
     }
     function migrateLegacy(id) {
       const bare = targetFlags[id];
@@ -671,7 +682,7 @@
         const res = await fetch(base + "/flights.json");
         if (!res.ok) throw new Error("Flights read HTTP " + res.status);
         const remote = await res.json();
-        const next = {};
+        const next = { ...flightStarts };
         const staleIds = [];
         if (remote && typeof remote === "object") {
           for (const [uid, info] of Object.entries(remote)) {
@@ -679,6 +690,11 @@
             const start = rawStart > nowSec ? nowSec : rawStart;
             if (!start || (nowSec - start) >= FLIGHT_MAX_AGE_SEC) {
               staleIds.push(uid);
+              delete next[uid];
+              continue;
+            }
+            const existing = next[uid];
+            if (existing && existing.route === String(info.route || "") && hasRecentFlagForPlayer(uid, nowSec)) {
               continue;
             }
             const candidate = {
@@ -687,11 +703,7 @@
               exact: Boolean(info.exact),
               at: Number(info.at || start)
             };
-            const merged = pickBetterFlight(candidate, flightStarts[uid]);
-            next[String(uid)] = merged;
-            if (merged && (merged.start !== candidate.start || merged.exact !== candidate.exact) && merged.exact) {
-              pushFlightToRemote(uid, merged);
-            }
+            next[String(uid)] = pickBetterFlight(candidate, existing);
           }
         }
         flightStarts = next;
@@ -1205,24 +1217,23 @@
         if (state === "Traveling") {
           const route = m.label;
           const transitionSeen = Boolean(hadPriorState && prevState && prevState !== "Traveling");
+          const recentFlag = hasRecentFlagForPlayer(id, now);
           const existing = flightStarts[id];
 
           if (!existing) {
-            const entry = { start: now, route: route, exact: transitionSeen };
+            const isExact = transitionSeen || recentFlag;
+            const entry = { start: now, route: route, exact: isExact };
             flightStarts[id] = entry;
-            if (transitionSeen) {
-              pushFlightToRemote(id, entry);
-            }
+            pushFlightToRemote(id, entry);
             changed = true;
           } else if (existing.route !== route) {
-            const entry = { start: now, route: route, exact: transitionSeen };
+            const isExact = transitionSeen || recentFlag;
+            const entry = { start: now, route: route, exact: isExact };
             flightStarts[id] = entry;
-            if (transitionSeen) {
-              pushFlightToRemote(id, entry);
-            }
+            pushFlightToRemote(id, entry);
             changed = true;
-          } else if (transitionSeen && !existing.exact) {
-            const entry = { start: now, route: route, exact: true };
+          } else if (!existing.exact && (transitionSeen || recentFlag)) {
+            const entry = { start: existing.start || now, route: route, exact: true };
             flightStarts[id] = entry;
             pushFlightToRemote(id, entry);
             changed = true;
